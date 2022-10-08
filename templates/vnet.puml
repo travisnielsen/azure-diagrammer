@@ -1,0 +1,5 @@
+AzureVirtualNetwork([id], [field1], [field2]) {
+
+    [subnets]
+
+}
