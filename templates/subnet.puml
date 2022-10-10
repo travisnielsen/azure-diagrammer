@@ -1,1 +1,1 @@
-AzureSubnet([id], [field1], [field2])])
+AzureSubnet([id], [name], [technology], [description])

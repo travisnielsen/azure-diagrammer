@@ -1,4 +1,4 @@
-AzureVirtualNetwork([id], [field1], [field2]) {
+AzureVirtualNetwork([id], [name], [technology], [description]) {
 
     [subnets]
 
