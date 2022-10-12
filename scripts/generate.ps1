@@ -135,5 +135,6 @@ foreach($vnet in $dictData['vnets']) {
 
 $diagramContent += $vnetPeerings
 
+$diagram = $diagram.Replace("[TITLE]", "sample-diagram")
 $diagram = $diagram.Replace("[BODY]", $diagramContent)
 $diagram | Out-File "network-diag.puml"

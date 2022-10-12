@@ -12,7 +12,7 @@
 !includeurl AzurePuml/Networking/AzureNSG.puml
 !includeurl AzurePuml/Networking/AzureVPNGateway.puml
 
-LAYOUT_LEFT_RIGHT
+' LAYOUT_LEFT_RIGHT
 
 [BODY]
 

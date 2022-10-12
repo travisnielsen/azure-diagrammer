@@ -1,3 +1,11 @@
-*.json
+# MacOS
 .DS_Store
+
+# source data
+*.json
+
+# generated PUML diagram
 scripts/*.puml
+
+# exported diagrams
+out/*
