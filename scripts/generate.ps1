@@ -10,6 +10,9 @@ $diagram = Get-Content '..//templates/diagram.puml' -Raw
 $regionTemplate = Get-Content '..//templates/region.puml' -Raw
 $vnetTemplate = Get-Content '..//templates/vnet.puml' -Raw
 $subnetTemplate = Get-Content '..//templates/subnet.puml' -Raw
+$routeTableTemplate = Get-Content '..//templates/routeTable.puml' -Raw
+$nsgTemplate = Get-Content '..//templates/nsg.puml' -Raw
+$vnetGatewayTemplate = Get-Content '..//templates/vnetGateway.puml' -Raw
 
 $diagramContent = ""
 
@@ -24,10 +27,21 @@ foreach ($regionName in $regions) {
 
     foreach ($vnet in $vnets) {
         $vnetData = $vnetTemplate
+        $descriptionText = ""
+
+        # DNS settings
+        $dnsSettings = $vnet.Properties.dhcpOptions.dnsServers
+
+        if ($dnsSettings.Length -gt 0) {
+            foreach ($dnsServer in $dnsSettings) { $descriptionText += $dnsServer + " " }
+        } else {
+            $descriptionText += "Azure Resolver"
+        }
+
         $vnetData = $vnetData.Replace("[id]", $vnet.Name.Replace("-", ""))
         $vnetData = $vnetData.Replace("[name]", "`"{0}`"" -f $vnet.Name)
         $vnetData = $vnetData.Replace("[technology]", "`"{0}`"" -f $vnet.Properties.addressSpace.addressPrefixes)
-        $vnetData = $vnetData.Replace("[description]", "`"{0}`"" -f "demo")
+        $vnetData = $vnetData.Replace("[description]", "`"DNS: {0}`"" -f $descriptionText)
         $vnetSubnets = ''
 
         foreach ($subnet in $vnet.Properties.subnets) {
@@ -36,6 +50,46 @@ foreach ($regionName in $regions) {
             $subnetData = $subnetData.Replace("[name]", "`"{0}`"" -f $subnet.name)
             $subnetData = $subnetData.Replace("[technology]", "`"{0}`"" -f $subnet.properties.addressPrefix)
             $subnetData = $subnetData.Replace("[description]", "`"{0}`"" -f "demo")
+
+            $subnetServicesMarkup = ""
+
+            # add routeTables
+            $linkedRouteTable = $subnet.properties.routeTable.id
+
+            if ($null -ne $linkedRouteTable) {
+                $routeTable = $dictData['routeTables'] | Where-Object { $_.Id -eq $linkedRouteTable }
+                $routeTableMarkup = "`t`t`t" + $routeTableTemplate
+                $routeTableMarkup = $routeTableMarkup.Replace("[id]", $routeTable.name.Replace("-", ""))
+                $routeTableMarkup = $routeTableMarkup.Replace("[name]", "`"{0}`"" -f $routeTable.name)
+                $routeTableMarkup = $routeTableMarkup.Replace("[technology]", "`"{0}`"" -f "TBD")
+                $routeTableMarkup = $routeTableMarkup.Replace("[description]", "`"{0}`"" -f "demo")
+                $subnetServicesMarkup += $routeTableMarkup + "`n"
+            }
+
+            # add nsgs
+            $linkedNsg = $subnet.properties.networkSecurityGroup.id
+
+            if ($null -ne $linkedNsg) {
+                $nsg = $dictData['nsgs'] | Where-Object { $_.Id -eq $linkedNsg }
+                $nsgMarkup = "`t`t`t" + $nsgTemplate
+                $nsgMarkup = $nsgMarkup.Replace("[id]", $nsg.name.Replace("-", ""))
+                $nsgMarkup = $nsgMarkup.Replace("[name]", "`"{0}`"" -f $nsg.name)
+                $nsgMarkup = $nsgMarkup.Replace("[technology]", "`"{0}`"" -f "TBD")
+                $nsgMarkup = $nsgMarkup.Replace("[description]", "`"{0}`"" -f "demo")
+                $subnetServicesMarkup += $nsgMarkup + "`n"
+            }
+
+            # add gateways
+            $linkedVnetGateway = 
+
+            # append markup to subnet
+            if ($subnetServicesMarkup) {
+                $subnetData += " {`n"
+                $subnetData += $subnetServicesMarkup
+                $subnetData += "`t`t}`n"
+            }
+
+
             $vnetSubnets += "`n"
             $vnetSubnets += "`t`t" + $subnetData
         }
