@@ -11,6 +11,8 @@
 !includeurl AzurePuml/Networking/AzureNAT.puml
 !includeurl AzurePuml/Networking/AzureNSG.puml
 
+LAYOUT_LEFT_RIGHT
+
 [BODY]
 
 

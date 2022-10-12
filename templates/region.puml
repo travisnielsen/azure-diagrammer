@@ -1,0 +1,3 @@
+rectangle [name] <<Region>> as [id] {
+    [vnets]
+}
