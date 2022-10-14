@@ -13,6 +13,7 @@ $subnetTemplate = Get-Content '..//templates/subnet.puml' -Raw
 $routeTableTemplate = Get-Content '..//templates/routeTable.puml' -Raw
 $nsgTemplate = Get-Content '..//templates/nsg.puml' -Raw
 $vnetGatewayTemplate = Get-Content '..//templates/vnetGateway.puml' -Raw
+$firewallTemplate = Get-Content '..//templates/firewall.puml' -Raw
 
 $diagramContent = ""
 
@@ -26,8 +27,13 @@ foreach ($regionName in $regions) {
     $vnets = $dictData['vnets'] | Where-Object { $_.Location -eq $regionName }
 
     foreach ($vnet in $vnets) {
+        $isHub = $false
         $vnetData = $vnetTemplate
         $descriptionText = ""
+
+        if ($vnet.Properties.virtualNetworkPeerings.Count -gt 2) {
+            $isHub = $true
+        }
 
         # DNS settings
         $dnsSettings = $vnet.Properties.dhcpOptions.dnsServers
@@ -45,8 +51,20 @@ foreach ($regionName in $regions) {
         $vnetSubnets = ''
 
         foreach ($subnet in $vnet.Properties.subnets) {
+            $isHubSubnet = $false
             $subnetData = $subnetTemplate
-            $subnetData = $subnetData.Replace("[id]", $subnet.name.Replace("-", ""))
+
+            $markupId = $subnet.name.Replace("-", "")
+            if ($subnet.name -eq "GatewaySubnet" -or $subnet.name -eq "AzureFirewallSubnet") {
+                $markupId = $markupId + $vnet.Name.Replace("-", "")
+                $isHubSubnet = $true
+            }
+
+            if ($isHub -and ($isHubSubnet -eq $false)) { 
+                break
+            }
+
+            $subnetData = $subnetData.Replace("[id]", $markupId)
             $subnetData = $subnetData.Replace("[name]", "`"{0}`"" -f $subnet.name)
             $subnetData = $subnetData.Replace("[technology]", "`"{0}`"" -f $subnet.properties.addressPrefix)
             $subnetData = $subnetData.Replace("[description]", "`"{0}`"" -f "demo")
@@ -66,7 +84,6 @@ foreach ($regionName in $regions) {
                 $subnetServicesMarkup += $routeTableMarkup + "`n"
             }
 
-            # add nsgs
             $linkedNsg = $subnet.properties.networkSecurityGroup.id
 
             if ($null -ne $linkedNsg) {
@@ -79,8 +96,27 @@ foreach ($regionName in $regions) {
                 $subnetServicesMarkup += $nsgMarkup + "`n"
             }
 
-            # add gateways
-            $linkedVnetGateway = 
+            $linkedVnetGateway = $dictData["vnetGateways"] | Where-Object { $_.Properties.ipConfigurations[0].properties.subnet.id -eq $subnet.id }
+
+            if ($linkedVnetGateway) {
+                $gatewayMarkup = "`t`t`t" + $vnetGatewayTemplate
+                $gatewayMarkup = $gatewayMarkup.Replace("[id]", $linkedVnetGateway.name.Replace("-", ""))
+                $gatewayMarkup = $gatewayMarkup.Replace("[name]", "`"{0}`"" -f $linkedVnetGateway.name)
+                $gatewayMarkup = $gatewayMarkup.Replace("[technology]", "`"SKU: {0}, Capacity: {1}`"" -f $linkedVnetGateway.Properties.sku.name, $linkedVnetGateway.Properties.sku.capacity)
+                $gatewayMarkup = $gatewayMarkup.Replace("[description]", "`"{0}`"" -f $linkedVnetGateway.Properties.gatewayType)
+                $subnetServicesMarkup += $gatewayMarkup + "`n"
+            }
+
+            $linkedFirewall = $dictData["firewalls"] | Where-Object { $_.Properties.ipConfigurations[0].properties.subnet.id -eq $subnet.id }
+
+            if ($linkedFirewall) {
+                $firewallMarkup = "`t`t`t" + $firewallTemplate
+                $firewallMarkup = $firewallMarkup.Replace("[id]", $linkedFirewall.name.Replace("-", ""))
+                $firewallMarkup = $firewallMarkup.Replace("[name]", "`"{0}`"" -f $linkedFirewall.name)
+                $firewallMarkup = $firewallMarkup.Replace("[technology]", "`"SKU: {0}`"" -f $linkedFirewall.Properties.sku.tier)
+                $firewallMarkup = $firewallMarkup.Replace("[description]", "`"<B>{0}</B>`"" -f $linkedFirewall.Properties.ipConfigurations[0].properties.privateIPAddress )
+                $subnetServicesMarkup += $firewallMarkup + "`n"         
+            }
 
             # append markup to subnet
             if ($subnetServicesMarkup) {
