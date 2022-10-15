@@ -1,5 +1,8 @@
 @startuml [TITLE]
 
+' skinparam linetype polyline
+skinparam linetype ortho
+
 !define AzurePuml https://raw.githubusercontent.com/travisnielsen/Azure-PlantUML/themesupport/dist
 !includeurl AzurePuml/themes/blueprint.puml
 !includeurl AzurePuml/Networking/AzureFirewall.puml
