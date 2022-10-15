@@ -28,7 +28,8 @@ foreach ($regionName in $regions) {
 
     foreach ($vnet in $vnets) {
         $isHub = $false
-        $vnetData = $vnetTemplate
+        $subnetMarkupIds = New-Object -TypeName 'System.Collections.ArrayList'
+        $vnetMarkup = $vnetTemplate
         $descriptionText = ""
 
         if ($vnet.Properties.virtualNetworkPeerings.Count -gt 2) {
@@ -44,34 +45,32 @@ foreach ($regionName in $regions) {
             $descriptionText += "Azure Resolver"
         }
 
-        $vnetData = $vnetData.Replace("[id]", $vnet.Name.Replace("-", ""))
-        $vnetData = $vnetData.Replace("[name]", "`"{0}`"" -f $vnet.Name)
-        $vnetData = $vnetData.Replace("[technology]", "`"{0}`"" -f $vnet.Properties.addressSpace.addressPrefixes)
-        $vnetData = $vnetData.Replace("[description]", "`"DNS: {0}`"" -f $descriptionText)
-        $vnetSubnets = ''
+        $vnetMarkup = $vnetMarkup.Replace("[id]", $vnet.Name.Replace("-", ""))
+        $vnetMarkup = $vnetMarkup.Replace("[name]", "`"{0}`"" -f $vnet.Name)
+        $vnetMarkup = $vnetMarkup.Replace("[technology]", "`"{0}`"" -f $vnet.Properties.addressSpace.addressPrefixes)
+        $vnetMarkup = $vnetMarkup.Replace("[description]", "`"DNS: {0}`"" -f $descriptionText)
+        $subnetMarkupContainer = ''
 
         foreach ($subnet in $vnet.Properties.subnets) {
             $isHubSubnet = $false
-            $subnetData = $subnetTemplate
+            $subnetMarkup = $subnetTemplate
+            $subnetMarkupId = $subnet.name.Replace("-", "")
 
-            $markupId = $subnet.name.Replace("-", "")
             if ($subnet.name -eq "GatewaySubnet" -or $subnet.name -eq "AzureFirewallSubnet") {
-                $markupId = $markupId + $vnet.Name.Replace("-", "")
+                $subnetMarkupId = $subnetMarkupId + $vnet.Name.Replace("-", "")
                 $isHubSubnet = $true
             }
 
-            if ($isHub -and ($isHubSubnet -eq $false)) { 
-                break
-            }
+            # for hub vnets, don't add hub subnets that are not related to connectivity
+            if ($isHub -and ($isHubSubnet -eq $false)) { break }
 
-            $subnetData = $subnetData.Replace("[id]", $markupId)
-            $subnetData = $subnetData.Replace("[name]", "`"{0}`"" -f $subnet.name)
-            $subnetData = $subnetData.Replace("[technology]", "`"{0}`"" -f $subnet.properties.addressPrefix)
-            $subnetData = $subnetData.Replace("[description]", "`"{0}`"" -f "demo")
+            $subnetMarkup = $subnetMarkup.Replace("[id]", $subnetMarkupId)
+            $subnetMarkup = $subnetMarkup.Replace("[name]", "`"{0}`"" -f $subnet.name)
+            $subnetMarkup = $subnetMarkup.Replace("[technology]", "`"{0}`"" -f $subnet.properties.addressPrefix)
+            $subnetMarkup = $subnetMarkup.Replace("[description]", "`"{0}`"" -f "demo")
 
             $subnetServicesMarkup = ""
 
-            # add routeTables
             $linkedRouteTable = $subnet.properties.routeTable.id
 
             if ($null -ne $linkedRouteTable) {
@@ -120,25 +119,37 @@ foreach ($regionName in $regions) {
 
             # append markup to subnet
             if ($subnetServicesMarkup) {
-                $subnetData += " {`n"
-                $subnetData += $subnetServicesMarkup
-                $subnetData += "`t`t}`n"
+                $subnetMarkup += " {`n"
+                $subnetMarkup += $subnetServicesMarkup
+                $subnetMarkup += "`t`t}`n"
             }
 
+            $subnetMarkupContainer += "`n"
+            $subnetMarkupContainer += "`t`t" + $subnetMarkup
 
-            $vnetSubnets += "`n"
-            $vnetSubnets += "`t`t" + $subnetData
+            $subnetMarkupIds.Add($subnetMarkupId)
         }
 
-        $vnetData = $vnetData.Replace("[subnets]", $vnetSubnets)
+        # append markup for vertical alignment of subnets
+        $hiddenLinkMarkup = "`n"
+
+        for ($i=0; $i -lt $subnetMarkupIds.Count; $i++) {
+            if ($i -gt 0) {
+                $hiddenLinkMarkup += "`t`t{0} -[hidden]d-> {1}`n" -f $subnetMarkupIds[$i-1], $subnetMarkupIds[$i]
+            }
+        }
+        
+        $subnetMarkupContainer += $hiddenLinkMarkup
+
+        # insert vnet data
+        $vnetMarkup = $vnetMarkup.Replace("[subnets]", $subnetMarkupContainer)
         $regionVnets += "`n"
-        $regionVnets += "`t" + $vnetData
+        $regionVnets += "`t" + $vnetMarkup
     }
 
     $regionData = $regionData.Replace("[vnets]", $regionVnets)
     $diagramContent += "`n`n"
     $diagramContent += $regionData
-
 }
 
 $dictPeerings = @{}
@@ -158,7 +169,7 @@ foreach($vnet in $dictData['vnets']) {
                 
                 # check to see if there is already a peering. No need to complicate the diagram with bi-directional peering
                 if (! $dictPeerings.ContainsKey($remoteVnetId)) {
-                    $peeringMarkup = "{0} <---> {1}" -f $vnet.Name.Replace("-", ""), $remoteVnetId.Replace("-", "")
+                    $peeringMarkup = "{0} -----d- {1}" -f $vnet.Name.Replace("-", ""), $remoteVnetId.Replace("-", "")
                     $vnetPeerings += "`n" + $peeringMarkup
                     $dictPeerings.Add($vnet.Name, $remoteVnetId)
                 }
