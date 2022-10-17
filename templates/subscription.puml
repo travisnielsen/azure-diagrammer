@@ -1,0 +1,3 @@
+AzureSubscription([id], [name], [technology], [description]) {
+    [resources]
+}

@@ -7,12 +7,14 @@ foreach ($file in $sourceFiles) {
 }
 
 $diagram = Get-Content '..//templates/diagram.puml' -Raw
+$subscriptionTemplate = Get-Content '..//templates/subscription.puml'
 $regionTemplate = Get-Content '..//templates/region.puml' -Raw
 $vnetTemplate = Get-Content '..//templates/vnet.puml' -Raw
 $subnetTemplate = Get-Content '..//templates/subnet.puml' -Raw
 $routeTableTemplate = Get-Content '..//templates/routeTable.puml' -Raw
 $nsgTemplate = Get-Content '..//templates/nsg.puml' -Raw
 $vnetGatewayTemplate = Get-Content '..//templates/vnetGateway.puml' -Raw
+$expressRouteTemplate = Get-Content '..//templates/expressRoute.puml' -Raw
 $firewallTemplate = Get-Content '..//templates/firewall.puml' -Raw
 
 $diagramContent = ""
