@@ -58,9 +58,14 @@ foreach ($subscription in $listSubscriptions | Select-Object -Unique) {
     
     foreach ($connection in $listGatewayConnections) {
         $connectionPeerId = $connection.properties.peer.id
-        $connectionPeerSubscriptionId = $connectionPeerId.Split("/")[2]
-        if ($subscriptions -notcontains $connectionPeerSubscriptionId) {
-            $listSubscriptions.Add($connectionPeerSubscriptionId)
+
+        # Only concerned about ER circuits in isolated subscriptions
+
+        if ($connectionPeerId) {
+            $connectionPeerSubscriptionId = $connectionPeerId.Split("/")[2]
+            if ($subscriptions -notcontains $connectionPeerSubscriptionId) {
+                $listSubscriptions.Add($connectionPeerSubscriptionId)
+            }
         }
     }
 }
@@ -68,6 +73,7 @@ foreach ($subscription in $listSubscriptions | Select-Object -Unique) {
 # Export objects in-scope for the identified subscriptions based on VNETs and VNET Connection objects
 
 $subscriptions = $listSubscriptions | Select-Object -Unique
+$listSubscriptionInfo = New-Object -TypeName 'System.Collections.ArrayList'
 $listRouteTables = New-Object -TypeName 'System.Collections.ArrayList'
 $listNsgs = New-Object -TypeName 'System.Collections.ArrayList'
 $listFirewalls = New-Object -TypeName 'System.Collections.ArrayList'
@@ -78,15 +84,19 @@ $listExpressRouteCircuits = New-Object -TypeName 'System.Collections.ArrayList'
 
 foreach ($subscription in $subscriptions) {
     Set-AzContext -Subscription $subscription
-    Get-AzResource -ResourceType "Microsoft.Network/routeTables" -ExpandProperties | ForEach-Object { $listRouteTables.Add($_) }
-    Get-AzResource -ResourceType "Microsoft.Network/networkSecurityGroups" -ExpandProperties | ForEach-Object { $listNsgs.Add($_) }
-    Get-AzResource -ResourceType "Microsoft.Network/azureFirewalls" -ExpandProperties | ForEach-Object { $listFirewalls.Add($_) }
-    Get-AzResource -ResourceType "Microsoft.Network/natGateways" -ExpandProperties | ForEach-Object { $listNatGateways.Add($_) }
-    Get-AzResource -ResourceType "Microsoft.Network/applicationGateways" -ExpandProperties | ForEach-Object { $listAppGateways.Add($_) }
+    $context = Get-AzContext
+    $listSubscriptionInfo.Add($context.Subscription)
+
+    # Get-AzResource -ResourceType "Microsoft.Network/routeTables" -ExpandProperties | ForEach-Object { $listRouteTables.Add($_) }
+    # Get-AzResource -ResourceType "Microsoft.Network/networkSecurityGroups" -ExpandProperties | ForEach-Object { $listNsgs.Add($_) }
+    # Get-AzResource -ResourceType "Microsoft.Network/azureFirewalls" -ExpandProperties | ForEach-Object { $listFirewalls.Add($_) }
+    # Get-AzResource -ResourceType "Microsoft.Network/natGateways" -ExpandProperties | ForEach-Object { $listNatGateways.Add($_) }
+    # Get-AzResource -ResourceType "Microsoft.Network/applicationGateways" -ExpandProperties | ForEach-Object { $listAppGateways.Add($_) }
     Get-AzResource -ResourceType "Microsoft.Network/virtualNetworkGateways" -ExpandProperties | ForEach-Object { $listVnetGateways.Add($_) }
     Get-AzResource -ResourceType "Microsoft.Network/expressRouteCircuits" -ExpandProperties | ForEach-Object { $listExpressRouteCircuits.Add($_) }
 }
 
+ConvertTo-Json -InputObject $listSubscriptionInfo -Depth 7 | Out-File "..//data/subscriptions.json"
 ConvertTo-Json -InputObject $listVnets -Depth 7 | Out-File "..//data/vnets.json"
 ConvertTo-Json -InputObject $listRouteTables -Depth 7 | Out-File "..//data/routeTables.json"
 ConvertTo-Json -InputObject $listNsgs -Depth 7 | Out-File "..//data/nsgs.json"
