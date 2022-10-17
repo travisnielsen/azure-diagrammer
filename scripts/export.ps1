@@ -53,6 +53,7 @@ $listFirewalls = New-Object -TypeName 'System.Collections.ArrayList'
 $listNatGateways = New-Object -TypeName 'System.Collections.ArrayList'
 $listAppGateways = New-Object -TypeName 'System.Collections.ArrayList'
 $listVnetGateways = New-Object -TypeName 'System.Collections.ArrayList'
+$listGatewayConnections = New-Object -TypeName 'System.Collections.ArrayList'
 $listExpressRouteGateways = New-Object -TypeName 'System.Collections.ArrayList'
 
 foreach ($subscription in $subscriptions) {
@@ -63,6 +64,7 @@ foreach ($subscription in $subscriptions) {
     Get-AzResource -ResourceType "Microsoft.Network/natGateways" -ExpandProperties | ForEach-Object { $listNatGateways.Add($_) }
     Get-AzResource -ResourceType "Microsoft.Network/applicationGateways" -ExpandProperties | ForEach-Object { $listAppGateways.Add($_) }
     Get-AzResource -ResourceType "Microsoft.Network/virtualNetworkGateways" -ExpandProperties | ForEach-Object { $listVnetGateways.Add($_) }
+    Get-AzResource -ResourceType "Microsoft.Network/connections" -ExpandProperties | ForEach-Object { $listGatewayConnections.Add($_) }
     Get-AzResource -ResourceType "Microsoft.Network/expressRouteCircuits" -ExpandProperties | ForEach-Object { $listExpressRouteGateways.Add($_) }
 }
 
@@ -73,4 +75,5 @@ ConvertTo-Json -InputObject $listFirewalls -Depth 7 | Out-File "firewalls.json"
 ConvertTo-Json -InputObject $listNatGateways -Depth 7 | Out-File "natGateways.json"
 ConvertTo-Json -InputObject $listAppGateways -Depth 7 | Out-File "appGateways.json"
 ConvertTo-Json -InputObject $listVnetGateways -Depth 7 | Out-File "vnetGateways.json"
+ConvertTo-Json -InputObject $listGatewayConnections -Depth 7 | Out-File "connections.json"
 ConvertTo-Json -InputObject $listExpressRouteGateways -Depth 7 | Out-File "expressRouteCircuits.json"
