@@ -20,136 +20,179 @@ $firewallTemplate = Get-Content '..//templates/firewall.puml' -Raw
 $diagramContent = ""
 
 $regions = @( $dictData['vnets'] | ForEach-Object {$_.Location } ) | Select-Object -Unique
+$subscriptions = @($dictData['subscriptions'])
+
+# region
 
 foreach ($regionName in $regions) {
     $regionData = $regionTemplate
     $regionData = $regionData.Replace("[id]", $regionName)
     $regionData = $regionData.Replace("[name]", "`"{0}`"" -f $regionName)
-    $regionVnets = ''
-    $vnets = $dictData['vnets'] | Where-Object { $_.Location -eq $regionName }
+    $subscriptionsMarkupContainer = ''
+    $subscriptionMarkupIdList = New-Object -TypeName 'System.Collections.ArrayList'
 
-    foreach ($vnet in $vnets) {
-        $isHub = $false
-        $subnetMarkupIds = New-Object -TypeName 'System.Collections.ArrayList'
-        $vnetMarkup = $vnetTemplate
-        $descriptionText = ""
+    # subscriptions
 
-        if ($vnet.Properties.virtualNetworkPeerings.Count -gt 2) {
-            $isHub = $true
+    foreach ($subscription in $subscriptions) {
+
+        # keep track of the # of services in the subscription
+        $serviceCount = 0
+
+        $subscriptionServicesMarkupContainer = ''
+
+        $subscriptionMarkup = $subscriptionTemplate
+        $subscriptionMarkupId = $regionName + $subscription.Name.Replace("-", "")
+        $subscriptionMarkupIdList.Add($subscriptionMarkupId)
+        $subscriptionMarkup = $subscriptionMarkup.Replace("[id]", $subscriptionMarkupId)
+        $subscriptionMarkup = $subscriptionMarkup.Replace("[name]", "`"{0}`"" -f $subscription.Name)
+        $subscriptionMarkup = $subscriptionMarkup.Replace("[technology]", "`"{0}`"" -f $subscription.Id)
+        $subscriptionMarkup = $subscriptionMarkup.Replace("[description]", "`"{0}`"" -f "TBD")
+
+        $vnets = $dictData['vnets'] | Where-Object { $_.Location -eq $regionName -and $_.SubscriptionId -eq $subscription.Id }
+
+        foreach ($vnet in $vnets) {
+            $serviceCount +=1
+            $isHub = $false
+            $subnetMarkupIds = New-Object -TypeName 'System.Collections.ArrayList'
+            $vnetMarkup = $vnetTemplate
+            $descriptionText = ""
+    
+            if ($vnet.Properties.virtualNetworkPeerings.Count -gt 2) {
+                $isHub = $true
+            }
+    
+            # DNS settings
+            $dnsSettings = $vnet.Properties.dhcpOptions.dnsServers
+    
+            if ($dnsSettings.Length -gt 0) {
+                foreach ($dnsServer in $dnsSettings) { $descriptionText += $dnsServer + " " }
+            } else {
+                $descriptionText += "Azure Resolver"
+            }
+    
+            $vnetMarkup = $vnetMarkup.Replace("[id]", $vnet.Name.Replace("-", ""))
+            $vnetMarkup = $vnetMarkup.Replace("[name]", "`"{0}`"" -f $vnet.Name)
+            $vnetMarkup = $vnetMarkup.Replace("[technology]", "`"{0}`"" -f $vnet.Properties.addressSpace.addressPrefixes)
+            $vnetMarkup = $vnetMarkup.Replace("[description]", "`"DNS: {0}`"" -f $descriptionText)
+            $subnetMarkupContainer = ''
+    
+            foreach ($subnet in $vnet.Properties.subnets) {
+                $isHubSubnet = $false
+                $subnetMarkup = $subnetTemplate
+                $subnetMarkupId = $subnet.name.Replace("-", "")
+    
+                if ($subnet.name -eq "GatewaySubnet" -or $subnet.name -eq "AzureFirewallSubnet") {
+                    $subnetMarkupId = $subnetMarkupId + $vnet.Name.Replace("-", "")
+                    $isHubSubnet = $true
+                }
+    
+                # for hub vnets, don't add hub subnets that are not related to connectivity
+                if ($isHub -and ($isHubSubnet -eq $false)) { break }
+    
+                $subnetMarkup = $subnetMarkup.Replace("[id]", $subnetMarkupId)
+                $subnetMarkup = $subnetMarkup.Replace("[name]", "`"{0}`"" -f $subnet.name)
+                $subnetMarkup = $subnetMarkup.Replace("[technology]", "`"{0}`"" -f $subnet.properties.addressPrefix)
+                $subnetMarkup = $subnetMarkup.Replace("[description]", "`"{0}`"" -f "demo")
+    
+                $subnetServicesMarkup = ""
+    
+                $linkedRouteTable = $subnet.properties.routeTable.id
+    
+                if ($null -ne $linkedRouteTable) {
+                    $routeTable = $dictData['routeTables'] | Where-Object { $_.Id -eq $linkedRouteTable }
+                    $routeTableMarkup = "`t`t`t`t" + $routeTableTemplate
+                    $routeTableMarkup = $routeTableMarkup.Replace("[id]", $routeTable.name.Replace("-", ""))
+                    $routeTableMarkup = $routeTableMarkup.Replace("[name]", "`"{0}`"" -f $routeTable.name)
+                    $routeTableMarkup = $routeTableMarkup.Replace("[technology]", "`"{0}`"" -f "TBD")
+                    $routeTableMarkup = $routeTableMarkup.Replace("[description]", "`"{0}`"" -f "demo")
+                    $subnetServicesMarkup += $routeTableMarkup + "`n"
+                }
+    
+                $linkedNsg = $subnet.properties.networkSecurityGroup.id
+    
+                if ($null -ne $linkedNsg) {
+                    $nsg = $dictData['nsgs'] | Where-Object { $_.Id -eq $linkedNsg }
+                    $nsgMarkup = "`t`t`t`t" + $nsgTemplate
+                    $nsgMarkup = $nsgMarkup.Replace("[id]", $nsg.name.Replace("-", ""))
+                    $nsgMarkup = $nsgMarkup.Replace("[name]", "`"{0}`"" -f $nsg.name)
+                    $nsgMarkup = $nsgMarkup.Replace("[technology]", "`"{0}`"" -f "TBD")
+                    $nsgMarkup = $nsgMarkup.Replace("[description]", "`"{0}`"" -f "demo")
+                    $subnetServicesMarkup += $nsgMarkup + "`n"
+                }
+    
+                $linkedVnetGateway = $dictData["vnetGateways"] | Where-Object { $_.Properties.ipConfigurations[0].properties.subnet.id -eq $subnet.id }
+    
+                if ($linkedVnetGateway) {
+                    $gatewayMarkup = "`t`t`t`t" + $vnetGatewayTemplate
+                    $gatewayMarkup = $gatewayMarkup.Replace("[id]", $linkedVnetGateway.name.Replace("-", ""))
+                    $gatewayMarkup = $gatewayMarkup.Replace("[name]", "`"{0}`"" -f $linkedVnetGateway.name)
+                    $technologyText = "SKU: {0}, Capacity: {1}" -f $linkedVnetGateway.Properties.sku.name, $linkedVnetGateway.Properties.sku.capacity
+                    $gatewayMarkup = $gatewayMarkup.Replace("[technology]", "`"{0}`"" -f $technologyText)
+                    $gatewayMarkup = $gatewayMarkup.Replace("[description]", "`"{0}`"" -f $linkedVnetGateway.Properties.gatewayType)
+                    $subnetServicesMarkup += $gatewayMarkup + "`n"
+                }
+    
+                $linkedFirewall = $dictData["firewalls"] | Where-Object { $_.Properties.ipConfigurations[0].properties.subnet.id -eq $subnet.id }
+    
+                if ($linkedFirewall) {
+                    $firewallMarkup = "`t`t`t`t" + $firewallTemplate
+                    $firewallMarkup = $firewallMarkup.Replace("[id]", $linkedFirewall.name.Replace("-", ""))
+                    $firewallMarkup = $firewallMarkup.Replace("[name]", "`"{0}`"" -f $linkedFirewall.name)
+                    $firewallMarkup = $firewallMarkup.Replace("[technology]", "`"SKU: {0}`"" -f $linkedFirewall.Properties.sku.tier)
+                    $firewallMarkup = $firewallMarkup.Replace("[description]", "`"<B>{0}</B>`"" -f $linkedFirewall.Properties.ipConfigurations[0].properties.privateIPAddress )
+                    $subnetServicesMarkup += $firewallMarkup + "`n"         
+                }
+    
+                # append markup to subnet
+                if ($subnetServicesMarkup) {
+                    $subnetMarkup += " {`n"
+                    $subnetMarkup += $subnetServicesMarkup
+                    $subnetMarkup += "`t`t`t}`n"
+                }
+    
+                $subnetMarkupContainer += "`n"
+                $subnetMarkupContainer += "`t`t`t" + $subnetMarkup
+    
+                $subnetMarkupIds.Add($subnetMarkupId)
+            }
+    
+            # append markup for vertical alignment of subnets
+            $hiddenLinkMarkup = "`n"
+    
+            for ($i=0; $i -lt $subnetMarkupIds.Count; $i++) {
+                if ($i -gt 0) {
+                    $hiddenLinkMarkup += "`t`t`t{0} -[hidden]d-> {1}`n" -f $subnetMarkupIds[$i-1], $subnetMarkupIds[$i]
+                }
+            }
+            
+            $subnetMarkupContainer += $hiddenLinkMarkup
+    
+            # insert vnet data
+            $vnetMarkup = $vnetMarkup.Replace("[subnets]", $subnetMarkupContainer)
+            $subscriptionServicesMarkupContainer += "`n"
+            $subscriptionServicesMarkupContainer += $vnetMarkup + "`n"
         }
 
-        # DNS settings
-        $dnsSettings = $vnet.Properties.dhcpOptions.dnsServers
-
-        if ($dnsSettings.Length -gt 0) {
-            foreach ($dnsServer in $dnsSettings) { $descriptionText += $dnsServer + " " }
-        } else {
-            $descriptionText += "Azure Resolver"
+        if ($serviceCount -gt 0) {
+            $subscriptionMarkup = $subscriptionMarkup.Replace("[services]", $subscriptionServicesMarkupContainer)
+            $subscriptionsMarkupContainer += "`n" + $subscriptionMarkup
         }
 
-        $vnetMarkup = $vnetMarkup.Replace("[id]", $vnet.Name.Replace("-", ""))
-        $vnetMarkup = $vnetMarkup.Replace("[name]", "`"{0}`"" -f $vnet.Name)
-        $vnetMarkup = $vnetMarkup.Replace("[technology]", "`"{0}`"" -f $vnet.Properties.addressSpace.addressPrefixes)
-        $vnetMarkup = $vnetMarkup.Replace("[description]", "`"DNS: {0}`"" -f $descriptionText)
-        $subnetMarkupContainer = ''
+    } # end subscription
 
-        foreach ($subnet in $vnet.Properties.subnets) {
-            $isHubSubnet = $false
-            $subnetMarkup = $subnetTemplate
-            $subnetMarkupId = $subnet.name.Replace("-", "")
+    # directional relationship between subscriptions
+    $hiddenSubscriptionLinkMarkup = "`n"
 
-            if ($subnet.name -eq "GatewaySubnet" -or $subnet.name -eq "AzureFirewallSubnet") {
-                $subnetMarkupId = $subnetMarkupId + $vnet.Name.Replace("-", "")
-                $isHubSubnet = $true
-            }
-
-            # for hub vnets, don't add hub subnets that are not related to connectivity
-            if ($isHub -and ($isHubSubnet -eq $false)) { break }
-
-            $subnetMarkup = $subnetMarkup.Replace("[id]", $subnetMarkupId)
-            $subnetMarkup = $subnetMarkup.Replace("[name]", "`"{0}`"" -f $subnet.name)
-            $subnetMarkup = $subnetMarkup.Replace("[technology]", "`"{0}`"" -f $subnet.properties.addressPrefix)
-            $subnetMarkup = $subnetMarkup.Replace("[description]", "`"{0}`"" -f "demo")
-
-            $subnetServicesMarkup = ""
-
-            $linkedRouteTable = $subnet.properties.routeTable.id
-
-            if ($null -ne $linkedRouteTable) {
-                $routeTable = $dictData['routeTables'] | Where-Object { $_.Id -eq $linkedRouteTable }
-                $routeTableMarkup = "`t`t`t" + $routeTableTemplate
-                $routeTableMarkup = $routeTableMarkup.Replace("[id]", $routeTable.name.Replace("-", ""))
-                $routeTableMarkup = $routeTableMarkup.Replace("[name]", "`"{0}`"" -f $routeTable.name)
-                $routeTableMarkup = $routeTableMarkup.Replace("[technology]", "`"{0}`"" -f "TBD")
-                $routeTableMarkup = $routeTableMarkup.Replace("[description]", "`"{0}`"" -f "demo")
-                $subnetServicesMarkup += $routeTableMarkup + "`n"
-            }
-
-            $linkedNsg = $subnet.properties.networkSecurityGroup.id
-
-            if ($null -ne $linkedNsg) {
-                $nsg = $dictData['nsgs'] | Where-Object { $_.Id -eq $linkedNsg }
-                $nsgMarkup = "`t`t`t" + $nsgTemplate
-                $nsgMarkup = $nsgMarkup.Replace("[id]", $nsg.name.Replace("-", ""))
-                $nsgMarkup = $nsgMarkup.Replace("[name]", "`"{0}`"" -f $nsg.name)
-                $nsgMarkup = $nsgMarkup.Replace("[technology]", "`"{0}`"" -f "TBD")
-                $nsgMarkup = $nsgMarkup.Replace("[description]", "`"{0}`"" -f "demo")
-                $subnetServicesMarkup += $nsgMarkup + "`n"
-            }
-
-            $linkedVnetGateway = $dictData["vnetGateways"] | Where-Object { $_.Properties.ipConfigurations[0].properties.subnet.id -eq $subnet.id }
-
-            if ($linkedVnetGateway) {
-                $gatewayMarkup = "`t`t`t" + $vnetGatewayTemplate
-                $gatewayMarkup = $gatewayMarkup.Replace("[id]", $linkedVnetGateway.name.Replace("-", ""))
-                $gatewayMarkup = $gatewayMarkup.Replace("[name]", "`"{0}`"" -f $linkedVnetGateway.name)
-                $gatewayMarkup = $gatewayMarkup.Replace("[technology]", "`"SKU: {0}, Capacity: {1}`"" -f $linkedVnetGateway.Properties.sku.name, $linkedVnetGateway.Properties.sku.capacity)
-                $gatewayMarkup = $gatewayMarkup.Replace("[description]", "`"{0}`"" -f $linkedVnetGateway.Properties.gatewayType)
-                $subnetServicesMarkup += $gatewayMarkup + "`n"
-            }
-
-            $linkedFirewall = $dictData["firewalls"] | Where-Object { $_.Properties.ipConfigurations[0].properties.subnet.id -eq $subnet.id }
-
-            if ($linkedFirewall) {
-                $firewallMarkup = "`t`t`t" + $firewallTemplate
-                $firewallMarkup = $firewallMarkup.Replace("[id]", $linkedFirewall.name.Replace("-", ""))
-                $firewallMarkup = $firewallMarkup.Replace("[name]", "`"{0}`"" -f $linkedFirewall.name)
-                $firewallMarkup = $firewallMarkup.Replace("[technology]", "`"SKU: {0}`"" -f $linkedFirewall.Properties.sku.tier)
-                $firewallMarkup = $firewallMarkup.Replace("[description]", "`"<B>{0}</B>`"" -f $linkedFirewall.Properties.ipConfigurations[0].properties.privateIPAddress )
-                $subnetServicesMarkup += $firewallMarkup + "`n"         
-            }
-
-            # append markup to subnet
-            if ($subnetServicesMarkup) {
-                $subnetMarkup += " {`n"
-                $subnetMarkup += $subnetServicesMarkup
-                $subnetMarkup += "`t`t}`n"
-            }
-
-            $subnetMarkupContainer += "`n"
-            $subnetMarkupContainer += "`t`t" + $subnetMarkup
-
-            $subnetMarkupIds.Add($subnetMarkupId)
+    for ($i=0; $i -lt $subscriptionMarkupIdList.Count; $i++) {
+        if ($i -gt 0) {
+            $hiddenSubscriptionLinkMarkup += "`t`t{0} -----[hidden]d-> {1}`n" -f $subscriptionMarkupIdList[$i-1], $subscriptionMarkupIdList[$i]
         }
-
-        # append markup for vertical alignment of subnets
-        $hiddenLinkMarkup = "`n"
-
-        for ($i=0; $i -lt $subnetMarkupIds.Count; $i++) {
-            if ($i -gt 0) {
-                $hiddenLinkMarkup += "`t`t{0} -[hidden]d-> {1}`n" -f $subnetMarkupIds[$i-1], $subnetMarkupIds[$i]
-            }
-        }
-        
-        $subnetMarkupContainer += $hiddenLinkMarkup
-
-        # insert vnet data
-        $vnetMarkup = $vnetMarkup.Replace("[subnets]", $subnetMarkupContainer)
-        $regionVnets += "`n"
-        $regionVnets += "`t" + $vnetMarkup
     }
 
-    $regionData = $regionData.Replace("[vnets]", $regionVnets)
+    $subscriptionsMarkupContainer += $hiddenSubscriptionLinkMarkup
+
+    # $regionData += "`n"
+    $regionData = $regionData.Replace("[subscriptions]", $subscriptionsMarkupContainer)
     $diagramContent += "`n`n"
     $diagramContent += $regionData
 }
@@ -168,17 +211,14 @@ foreach($vnet in $dictData['vnets']) {
             $remoteVnetId = $peering.properties.remoteVirtualNetwork.id.Split("/")[8]
 
             if ($remoteVnetId -in $vnetIds ) {
-                
                 # check to see if there is already a peering. No need to complicate the diagram with bi-directional peering
                 if (! $dictPeerings.ContainsKey($remoteVnetId)) {
-                    $peeringMarkup = "{0} -----d- {1}" -f $vnet.Name.Replace("-", ""), $remoteVnetId.Replace("-", "")
+                    $peeringMarkup = "{0} <-> {1}" -f $vnet.Name.Replace("-", ""), $remoteVnetId.Replace("-", "")
                     $vnetPeerings += "`n" + $peeringMarkup
                     $dictPeerings.Add($vnet.Name, $remoteVnetId)
                 }
-
             }
         }
-
     }
 }
 

@@ -5,6 +5,7 @@ skinparam linetype ortho
 
 !define AzurePuml https://raw.githubusercontent.com/travisnielsen/Azure-PlantUML/themesupport/dist
 !includeurl AzurePuml/themes/blueprint.puml
+!includeurl AzurePuml/Management/AzureSubscription.puml
 !includeurl AzurePuml/Networking/AzureFirewall.puml
 !includeurl AzurePuml/Networking/AzureVirtualNetwork.puml
 !includeurl AzurePuml/Networking/AzureSubnet.puml

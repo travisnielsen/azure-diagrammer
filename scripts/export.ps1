@@ -87,11 +87,11 @@ foreach ($subscription in $subscriptions) {
     $context = Get-AzContext
     $listSubscriptionInfo.Add($context.Subscription)
 
-    # Get-AzResource -ResourceType "Microsoft.Network/routeTables" -ExpandProperties | ForEach-Object { $listRouteTables.Add($_) }
-    # Get-AzResource -ResourceType "Microsoft.Network/networkSecurityGroups" -ExpandProperties | ForEach-Object { $listNsgs.Add($_) }
-    # Get-AzResource -ResourceType "Microsoft.Network/azureFirewalls" -ExpandProperties | ForEach-Object { $listFirewalls.Add($_) }
-    # Get-AzResource -ResourceType "Microsoft.Network/natGateways" -ExpandProperties | ForEach-Object { $listNatGateways.Add($_) }
-    # Get-AzResource -ResourceType "Microsoft.Network/applicationGateways" -ExpandProperties | ForEach-Object { $listAppGateways.Add($_) }
+    Get-AzResource -ResourceType "Microsoft.Network/routeTables" -ExpandProperties | ForEach-Object { $listRouteTables.Add($_) }
+    Get-AzResource -ResourceType "Microsoft.Network/networkSecurityGroups" -ExpandProperties | ForEach-Object { $listNsgs.Add($_) }
+    Get-AzResource -ResourceType "Microsoft.Network/azureFirewalls" -ExpandProperties | ForEach-Object { $listFirewalls.Add($_) }
+    Get-AzResource -ResourceType "Microsoft.Network/natGateways" -ExpandProperties | ForEach-Object { $listNatGateways.Add($_) }
+    Get-AzResource -ResourceType "Microsoft.Network/applicationGateways" -ExpandProperties | ForEach-Object { $listAppGateways.Add($_) }
     Get-AzResource -ResourceType "Microsoft.Network/virtualNetworkGateways" -ExpandProperties | ForEach-Object { $listVnetGateways.Add($_) }
     Get-AzResource -ResourceType "Microsoft.Network/expressRouteCircuits" -ExpandProperties | ForEach-Object { $listExpressRouteCircuits.Add($_) }
 }
