@@ -23,6 +23,7 @@ $diagramContent = ""
 
 $regions = @( $dictData['vnets'] | ForEach-Object {$_.Location } ) | Select-Object -Unique
 $subscriptions = @($dictData['subscriptions'])
+$dictGatewayMarkupNames = @{}
 
 # region
 
@@ -44,7 +45,7 @@ foreach ($regionName in $regions) {
 
         $subscriptionMarkup = $subscriptionTemplate
         $subscriptionMarkupId = $regionName + $subscription.Name.Replace("-", "")
-        $subscriptionMarkupIdList.Add($subscriptionMarkupId)
+        # $subscriptionMarkupIdList.Add($subscriptionMarkupId)
         $subscriptionMarkup = $subscriptionMarkup.Replace("[id]", $subscriptionMarkupId)
         $subscriptionMarkup = $subscriptionMarkup.Replace("[name]", "`"{0}`"" -f $subscription.Name)
         $subscriptionMarkup = $subscriptionMarkup.Replace("[technology]", "`"{0}`"" -f $subscription.Id)
@@ -126,7 +127,11 @@ foreach ($regionName in $regions) {
     
                 if ($vnetGateway) {
                     $gatewayMarkup = "`t`t`t`t" + $vnetGatewayTemplate
-                    $gatewayMarkup = $gatewayMarkup.Replace("[id]", $vnetGateway.name.Replace("-", ""))
+
+                    $gatewayMarkupId = $vnetGateway.name.Replace("-", "")
+                    $dictGatewayMarkupNames.Add($vnetGateway.Id, $gatewayMarkupId)
+
+                    $gatewayMarkup = $gatewayMarkup.Replace("[id]", $gatewayMarkupId )
                     $gatewayMarkup = $gatewayMarkup.Replace("[name]", "`"{0}`"" -f $vnetGateway.name)
                     $technologyText = "SKU: {0}, Capacity: {1}" -f $vnetGateway.Properties.sku.name, $vnetGateway.Properties.sku.capacity
                     $gatewayMarkup = $gatewayMarkup.Replace("[technology]", "`"{0}`"" -f $technologyText)
@@ -179,6 +184,7 @@ foreach ($regionName in $regions) {
         }
 
         if ($serviceCount -gt 0) {
+            $subscriptionMarkupIdList.Add($subscriptionMarkupId)
             $subscriptionMarkup = $subscriptionMarkup.Replace("[services]", $subscriptionServicesMarkupContainer)
             $subscriptionsMarkupContainer += "`n" + $subscriptionMarkup
         }
@@ -269,13 +275,27 @@ foreach ($subscrption in $expressRouteSubscriptions) {
         $descriptionText += "Bandwidth (Mbps): " + $circuit.Properties.serviceProviderProperties.bandwidthInMbps
         $expressRouteMarkup = $expressRouteMarkup.Replace("[description]", "`"{0}`"" -f $descriptionText)
         $circuitsMarkup += "`n" + $expressRouteMarkup + "`n"
+
+        # link circuit to gateways
+        $expressRouteConnections = $gatewayConnections | Where-Object { $_.Properties.peer.id -eq $circuit.Id }
+
+        foreach ($connection in $expressRouteConnections) {
+            # get remote gateway markup ID
+            $gatewayMarkupId = $dictGatewayMarkupNames[$connection.Properties.virtualNetworkGateway1.id]
+
+            if ($gatewayMarkupId) {
+                $circuitLinksMarkup += "{0} <-----> {1}" -f $gatewayMarkupId, $expressRouteMarkupId
+                $circuitLinksMarkup += "`n"
+            }
+        }
+
+
     }
 
     # add markup
     $subscriptionMarkup = $subscriptionMarkup.Replace("[services]", $circuitsMarkup)
     $hybridConnectivityMarkup += "`n" + $subscriptionMarkup + "`n"
-
-    # link circuits to gateways
+    $hybridConnectivityMarkup += $circuitLinksMarkup
 
 }
 
