@@ -17,6 +17,8 @@ $vnetGatewayTemplate = Get-Content '..//templates/vnetGateway.puml' -Raw
 $expressRouteTemplate = Get-Content '..//templates/expressRoute.puml' -Raw
 $firewallTemplate = Get-Content '..//templates/firewall.puml' -Raw
 
+$gatewayConnections = New-Object -TypeName 'System.Collections.ArrayList'
+
 $diagramContent = ""
 
 $regions = @( $dictData['vnets'] | ForEach-Object {$_.Location } ) | Select-Object -Unique
@@ -96,10 +98,10 @@ foreach ($regionName in $regions) {
     
                 $subnetServicesMarkup = ""
     
-                $linkedRouteTable = $subnet.properties.routeTable.id
+                $routeTableId = $subnet.properties.routeTable.id
     
-                if ($null -ne $linkedRouteTable) {
-                    $routeTable = $dictData['routeTables'] | Where-Object { $_.Id -eq $linkedRouteTable }
+                if ($null -ne $routeTableId) {
+                    $routeTable = $dictData['routeTables'] | Where-Object { $_.Id -eq $routeTableId }
                     $routeTableMarkup = "`t`t`t`t" + $routeTableTemplate
                     $routeTableMarkup = $routeTableMarkup.Replace("[id]", $routeTable.name.Replace("-", ""))
                     $routeTableMarkup = $routeTableMarkup.Replace("[name]", "`"{0}`"" -f $routeTable.name)
@@ -108,10 +110,10 @@ foreach ($regionName in $regions) {
                     $subnetServicesMarkup += $routeTableMarkup + "`n"
                 }
     
-                $linkedNsg = $subnet.properties.networkSecurityGroup.id
+                $nsgId = $subnet.properties.networkSecurityGroup.id
     
-                if ($null -ne $linkedNsg) {
-                    $nsg = $dictData['nsgs'] | Where-Object { $_.Id -eq $linkedNsg }
+                if ($null -ne $nsgId) {
+                    $nsg = $dictData['nsgs'] | Where-Object { $_.Id -eq $nsgId }
                     $nsgMarkup = "`t`t`t`t" + $nsgTemplate
                     $nsgMarkup = $nsgMarkup.Replace("[id]", $nsg.name.Replace("-", ""))
                     $nsgMarkup = $nsgMarkup.Replace("[name]", "`"{0}`"" -f $nsg.name)
@@ -120,26 +122,29 @@ foreach ($regionName in $regions) {
                     $subnetServicesMarkup += $nsgMarkup + "`n"
                 }
     
-                $linkedVnetGateway = $dictData["vnetGateways"] | Where-Object { $_.Properties.ipConfigurations[0].properties.subnet.id -eq $subnet.id }
+                $vnetGateway = $dictData["vnetGateways"] | Where-Object { $_.Properties.ipConfigurations[0].properties.subnet.id -eq $subnet.id }
     
-                if ($linkedVnetGateway) {
+                if ($vnetGateway) {
                     $gatewayMarkup = "`t`t`t`t" + $vnetGatewayTemplate
-                    $gatewayMarkup = $gatewayMarkup.Replace("[id]", $linkedVnetGateway.name.Replace("-", ""))
-                    $gatewayMarkup = $gatewayMarkup.Replace("[name]", "`"{0}`"" -f $linkedVnetGateway.name)
-                    $technologyText = "SKU: {0}, Capacity: {1}" -f $linkedVnetGateway.Properties.sku.name, $linkedVnetGateway.Properties.sku.capacity
+                    $gatewayMarkup = $gatewayMarkup.Replace("[id]", $vnetGateway.name.Replace("-", ""))
+                    $gatewayMarkup = $gatewayMarkup.Replace("[name]", "`"{0}`"" -f $vnetGateway.name)
+                    $technologyText = "SKU: {0}, Capacity: {1}" -f $vnetGateway.Properties.sku.name, $vnetGateway.Properties.sku.capacity
                     $gatewayMarkup = $gatewayMarkup.Replace("[technology]", "`"{0}`"" -f $technologyText)
-                    $gatewayMarkup = $gatewayMarkup.Replace("[description]", "`"{0}`"" -f $linkedVnetGateway.Properties.gatewayType)
+                    $gatewayMarkup = $gatewayMarkup.Replace("[description]", "`"{0}`"" -f $vnetGateway.Properties.gatewayType)
                     $subnetServicesMarkup += $gatewayMarkup + "`n"
+
+                    # Add gateway connection to global list
+                    $dictData["connections"] | Where-Object { $_.Properties.virtualNetworkGateway1.id -eq $vnetGateway.Id } | ForEach-Object { $gatewayConnections.Add($_) }
                 }
+
+                $firewall = $dictData["firewalls"] | Where-Object { $_.Properties.ipConfigurations[0].properties.subnet.id -eq $subnet.id }
     
-                $linkedFirewall = $dictData["firewalls"] | Where-Object { $_.Properties.ipConfigurations[0].properties.subnet.id -eq $subnet.id }
-    
-                if ($linkedFirewall) {
+                if ($firewall) {
                     $firewallMarkup = "`t`t`t`t" + $firewallTemplate
-                    $firewallMarkup = $firewallMarkup.Replace("[id]", $linkedFirewall.name.Replace("-", ""))
-                    $firewallMarkup = $firewallMarkup.Replace("[name]", "`"{0}`"" -f $linkedFirewall.name)
-                    $firewallMarkup = $firewallMarkup.Replace("[technology]", "`"SKU: {0}`"" -f $linkedFirewall.Properties.sku.tier)
-                    $firewallMarkup = $firewallMarkup.Replace("[description]", "`"<B>{0}</B>`"" -f $linkedFirewall.Properties.ipConfigurations[0].properties.privateIPAddress )
+                    $firewallMarkup = $firewallMarkup.Replace("[id]", $firewall.name.Replace("-", ""))
+                    $firewallMarkup = $firewallMarkup.Replace("[name]", "`"{0}`"" -f $firewall.name)
+                    $firewallMarkup = $firewallMarkup.Replace("[technology]", "`"SKU: {0}`"" -f $firewall.Properties.sku.tier)
+                    $firewallMarkup = $firewallMarkup.Replace("[description]", "`"<B>{0}</B>`"" -f $firewall.Properties.ipConfigurations[0].properties.privateIPAddress )
                     $subnetServicesMarkup += $firewallMarkup + "`n"         
                 }
     
@@ -197,11 +202,13 @@ foreach ($regionName in $regions) {
     $diagramContent += $regionData
 }
 
+
+# VNET Peerings
+
 $dictPeerings = @{}
 $vnetPeerings = "`n"
 $vnetIds = @( $dictData['vnets'] | ForEach-Object {$_.Name } )
 
-# Peerings
 foreach($vnet in $dictData['vnets']) {
 
     if ($vnet.Properties.virtualNetworkPeerings.Count -gt 0) {
@@ -222,8 +229,63 @@ foreach($vnet in $dictData['vnets']) {
     }
 }
 
+# ==========================
+# add ExpressRoute circuits
+
+$hybridConnectivityMarkup = ''
+$circuitLinksMarkup = ''
+$circuitsIds = $gatewayConnections | ForEach-Object { $_.Properties.peer.id } | Select-Object -Unique
+$expressRouteCircuits = $dictData['expressRouteCircuits'] | Where-Object { $_.ResourceId -in $circuitsIds }
+$expressRouteSubscriptionIds = $expressRouteCircuits | ForEach-Object { $_.SubscriptionId } | Select-Object -Unique
+$expressRouteSubscriptions = $subscriptions | Where-Object { $_.Id -in $expressRouteSubscriptionIds }
+
+foreach ($subscrption in $expressRouteSubscriptions) {
+
+    # add the subscription container markup
+    $subscriptionMarkup = "`n" + $subscriptionTemplate
+    $subscriptionMarkupId = $subscription.Name.Replace("-", "")
+    $subscriptionMarkup = $subscriptionMarkup.Replace("[id]", $subscriptionMarkupId)
+    $subscriptionMarkup = $subscriptionMarkup.Replace("[name]", "`"{0}`"" -f $subscription.Name)
+    $subscriptionMarkup = $subscriptionMarkup.Replace("[technology]", "`"{0}`"" -f $subscription.Id)
+    $subscriptionMarkup = $subscriptionMarkup.Replace("[description]", "`"{0}`"" -f "TBD")
+
+    # add expressroute circuits
+    $circuitsMarkup = ''
+    $circuits = $expressRouteCircuits | Where-Object { $_.SubscriptionId -eq $subscription.Id }
+
+    foreach ($circuit in $circuits) {
+        $expressRouteMarkup = $expressRouteTemplate
+        $expressRouteMarkupId = $circuit.Name.Replace("-", "")
+        $expressRouteMarkup = $expressRouteMarkup.Replace("[id]", $expressRouteMarkupId)
+        $expressRouteMarkup = $expressRouteMarkup.Replace("[name]", "`"{0}`"" -f $circuit.Name)
+
+        $technologyText = ''
+        $technologyText += $circuit.Sku.Tier + " " + $circuit.Sku.Family
+        $expressRouteMarkup = $expressRouteMarkup.Replace("[technology]", $technologyText )
+
+        $descriptionText = ''
+        $descriptionText += "Provider: " + $circuit.Properties.serviceProviderProperties.serviceProviderName + "\n"
+        $descriptionText += "Peering Location: " + $circuit.Properties.serviceProviderProperties.peeringLocation + "\n"
+        $descriptionText += "Bandwidth (Mbps): " + $circuit.Properties.serviceProviderProperties.bandwidthInMbps
+        $expressRouteMarkup = $expressRouteMarkup.Replace("[description]", "`"{0}`"" -f $descriptionText)
+        $circuitsMarkup += "`n" + $expressRouteMarkup + "`n"
+    }
+
+    # add markup
+    $subscriptionMarkup = $subscriptionMarkup.Replace("[services]", $circuitsMarkup)
+    $hybridConnectivityMarkup += "`n" + $subscriptionMarkup + "`n"
+
+    # link circuits to gateways
+
+}
+
+# end ExpressRoute circuits
+# =========================
+
 $diagramContent += $vnetPeerings
 
-$diagram = $diagram.Replace("[TITLE]", "sample-diagram")
+$diagramContent += $hybridConnectivityMarkup
+
 $diagram = $diagram.Replace("[BODY]", $diagramContent)
+$diagram = $diagram.Replace("[TITLE]", "sample-diagram")
 $diagram | Out-File "network-diag.puml"
