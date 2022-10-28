@@ -18,6 +18,11 @@ skinparam linetype ortho
 
 ' LAYOUT_LEFT_RIGHT
 
+skinparam Rectangle {
+	BorderColor<<peered>> green
+	BorderThickness<<peered>> 8
+}
+
 [BODY]
 
 

@@ -6,6 +6,8 @@ foreach ($file in $sourceFiles) {
     $dictData.add( $file.BaseName, $dataItems)
 }
 
+$expressRouteColors = @('red','orange','purple','aqua')
+
 $diagram = Get-Content '..//templates/diagram.puml' -Raw
 $subscriptionTemplate = Get-Content '..//templates/subscription.puml'
 $regionTemplate = Get-Content '..//templates/region.puml' -Raw
@@ -18,9 +20,7 @@ $expressRouteTemplate = Get-Content '..//templates/expressRoute.puml' -Raw
 $firewallTemplate = Get-Content '..//templates/firewall.puml' -Raw
 
 $gatewayConnections = New-Object -TypeName 'System.Collections.ArrayList'
-
 $diagramContent = ""
-
 $regions = @( $dictData['vnets'] | ForEach-Object {$_.Location } ) | Select-Object -Unique
 $subscriptions = @($dictData['subscriptions'])
 $dictGatewayMarkupNames = @{}
@@ -45,11 +45,12 @@ foreach ($regionName in $regions) {
 
         $subscriptionMarkup = $subscriptionTemplate
         $subscriptionMarkupId = $regionName + $subscription.Name.Replace("-", "")
-        # $subscriptionMarkupIdList.Add($subscriptionMarkupId)
         $subscriptionMarkup = $subscriptionMarkup.Replace("[id]", $subscriptionMarkupId)
         $subscriptionMarkup = $subscriptionMarkup.Replace("[name]", "`"{0}`"" -f $subscription.Name)
         $subscriptionMarkup = $subscriptionMarkup.Replace("[technology]", "`"{0}`"" -f $subscription.Id)
         $subscriptionMarkup = $subscriptionMarkup.Replace("[description]", "`"{0}`"" -f "TBD")
+
+        $vnetMarkupList = New-Object -TypeName 'System.Collections.ArrayList'
 
         $vnets = $dictData['vnets'] | Where-Object { $_.Location -eq $regionName -and $_.SubscriptionId -eq $subscription.Id }
 
@@ -71,6 +72,13 @@ foreach ($regionName in $regions) {
                 foreach ($dnsServer in $dnsSettings) { $descriptionText += $dnsServer + " " }
             } else {
                 $descriptionText += "Azure Resolver"
+            }
+
+            # higlight peered VNETs
+            if ($vnet.Properties.virtualNetworkPeerings.Count -gt 0) {
+                $vnetMarkup = $vnetMarkup.Replace("[style]", "<<peered>>")
+            } else {
+                $vnetMarkup = $vnetMarkup.Replace("[style]", "")
             }
     
             $vnetMarkup = $vnetMarkup.Replace("[id]", $vnet.Name.Replace("-", ""))
@@ -162,7 +170,6 @@ foreach ($regionName in $regions) {
     
                 $subnetMarkupContainer += "`n"
                 $subnetMarkupContainer += "`t`t`t" + $subnetMarkup
-    
                 $subnetMarkupIds.Add($subnetMarkupId)
             }
     
@@ -179,9 +186,24 @@ foreach ($regionName in $regions) {
     
             # insert vnet data
             $vnetMarkup = $vnetMarkup.Replace("[subnets]", $subnetMarkupContainer)
+            $vnetMarkupList.Add($vnetMarkup)
+        } # end VNETs
+
+        # append VNET data in order of peering status
+
+        $peeredVnetMarkup = $vnetMarkupList | Where-Object { $_ -like "*<<peered>>*"}
+        foreach ($markup in $peeredVnetMarkup) {      
             $subscriptionServicesMarkupContainer += "`n"
-            $subscriptionServicesMarkupContainer += $vnetMarkup + "`n"
+            $subscriptionServicesMarkupContainer += $markup + "`n"     
         }
+
+        $islandVnetMarkup = $vnetMarkupList | Where-Object { $_ -notlike "*<<peered>>*"}
+        foreach ($markup in $islandVnetMarkup) {      
+            $subscriptionServicesMarkupContainer += "`n"
+            $subscriptionServicesMarkupContainer += $markup + "`n"     
+        }
+
+        # only add subscriptions that have services in the region
 
         if ($serviceCount -gt 0) {
             $subscriptionMarkupIdList.Add($subscriptionMarkupId)
@@ -208,7 +230,6 @@ foreach ($regionName in $regions) {
     $diagramContent += $regionData
 }
 
-
 # VNET Peerings
 
 $dictPeerings = @{}
@@ -226,7 +247,7 @@ foreach($vnet in $dictData['vnets']) {
             if ($remoteVnetId -in $vnetIds ) {
                 # check to see if there is already a peering. No need to complicate the diagram with bi-directional peering
                 if (! $dictPeerings.ContainsKey($remoteVnetId)) {
-                    $peeringMarkup = "{0} <-> {1}" -f $vnet.Name.Replace("-", ""), $remoteVnetId.Replace("-", "")
+                    $peeringMarkup = "{0} <-[thickness=8,#green]> {1}" -f $vnet.Name.Replace("-", ""), $remoteVnetId.Replace("-", "")
                     $vnetPeerings += "`n" + $peeringMarkup
                     $dictPeerings.Add($vnet.Name, $remoteVnetId)
                 }
@@ -235,7 +256,6 @@ foreach($vnet in $dictData['vnets']) {
     }
 }
 
-# ==========================
 # add ExpressRoute circuits
 
 $hybridConnectivityMarkup = ''
@@ -258,6 +278,7 @@ foreach ($subscrption in $expressRouteSubscriptions) {
     # add expressroute circuits
     $circuitsMarkup = ''
     $circuits = $expressRouteCircuits | Where-Object { $_.SubscriptionId -eq $subscription.Id }
+    $circuitId = 0
 
     foreach ($circuit in $circuits) {
         $expressRouteMarkup = $expressRouteTemplate
@@ -278,32 +299,44 @@ foreach ($subscrption in $expressRouteSubscriptions) {
 
         # link circuit to gateways
         $expressRouteConnections = $gatewayConnections | Where-Object { $_.Properties.peer.id -eq $circuit.Id }
+        
+        $lineColor = $expressRouteColors[$circuitId]
+        
+        $lineThickness = 3
+        $bandwidthMbps = $circuit.Properties.serviceProviderProperties.bandwidthInMbps
+        switch ($bandwidthMbps) {
+            5000 { $lineThickness = 4 }
+            10000 { $lineThickness = 8 }
+            default { $lineThickness = 3 }
+        }
 
         foreach ($connection in $expressRouteConnections) {
             # get remote gateway markup ID
             $gatewayMarkupId = $dictGatewayMarkupNames[$connection.Properties.virtualNetworkGateway1.id]
 
+            $routingWeight = $connection.Properties.routingWeight
+
             if ($gatewayMarkupId) {
-                $circuitLinksMarkup += "{0} <-----> {1}" -f $gatewayMarkupId, $expressRouteMarkupId
+                $circuitLinksMarkup += "{0} -[thickness=${lineThickness},#${lineColor}]---- {1}" -f $gatewayMarkupId, $expressRouteMarkupId
+                $circuitLinksMarkup += " : `"=Routing weight - {0}`"\n" -f $routingWeight
                 $circuitLinksMarkup += "`n"
             }
         }
 
+        $circuitId += 1
 
-    }
+    } # end ExpressRoute circuit
 
     # add markup
     $subscriptionMarkup = $subscriptionMarkup.Replace("[services]", $circuitsMarkup)
     $hybridConnectivityMarkup += "`n" + $subscriptionMarkup + "`n"
     $hybridConnectivityMarkup += $circuitLinksMarkup
-
 }
 
 # end ExpressRoute circuits
 # =========================
 
 $diagramContent += $vnetPeerings
-
 $diagramContent += $hybridConnectivityMarkup
 
 $diagram = $diagram.Replace("[BODY]", $diagramContent)
