@@ -1,6 +1,7 @@
 # load subscription and tenant IDs
 $contextInfo = Get-Content ./config.json | ConvertFrom-Json
 $azContext = Get-AzContext
+$outFolder = $contextInfo.subscriptionId
 $listSubscriptions = New-Object -TypeName 'System.Collections.ArrayList'
 
 if ($null -eq $azContext) {
@@ -96,13 +97,14 @@ foreach ($subscription in $subscriptions) {
     Get-AzResource -ResourceType "Microsoft.Network/expressRouteCircuits" -ExpandProperties | ForEach-Object { $listExpressRouteCircuits.Add($_) }
 }
 
-ConvertTo-Json -InputObject $listSubscriptionInfo -Depth 7 | Out-File "..//data/subscriptions.json"
-ConvertTo-Json -InputObject $listVnets -Depth 7 | Out-File "..//data/vnets.json"
-ConvertTo-Json -InputObject $listRouteTables -Depth 7 | Out-File "..//data/routeTables.json"
-ConvertTo-Json -InputObject $listNsgs -Depth 7 | Out-File "..//data/nsgs.json"
-ConvertTo-Json -InputObject $listFirewalls -Depth 7 | Out-File "..//data/firewalls.json"
-ConvertTo-Json -InputObject $listNatGateways -Depth 7 | Out-File "..//data/natGateways.json"
-ConvertTo-Json -InputObject $listAppGateways -Depth 7 | Out-File "..//data/appGateways.json"
-ConvertTo-Json -InputObject $listVnetGateways -Depth 7 | Out-File "..//data/vnetGateways.json"
-ConvertTo-Json -InputObject $listGatewayConnections -Depth 7 | Out-File "..//data/connections.json"
-ConvertTo-Json -InputObject $listExpressRouteCircuits -Depth 7 | Out-File "..//data/expressRouteCircuits.json"
+New-Item -Path "..//data/${outFolder}" -ItemType Directory
+ConvertTo-Json -InputObject $listSubscriptionInfo -Depth 7 | Out-File "..//data/${outFolder}/subscriptions.json"
+ConvertTo-Json -InputObject $listVnets -Depth 7 | Out-File "..//data/${outFolder}/vnets.json"
+ConvertTo-Json -InputObject $listRouteTables -Depth 7 | Out-File "..//data/${outFolder}/routeTables.json"
+ConvertTo-Json -InputObject $listNsgs -Depth 7 | Out-File "..//data/${outFolder}/nsgs.json"
+ConvertTo-Json -InputObject $listFirewalls -Depth 7 | Out-File "..//data/${outFolder}/firewalls.json"
+ConvertTo-Json -InputObject $listNatGateways -Depth 7 | Out-File "..//data/${outFolder}/natGateways.json"
+ConvertTo-Json -InputObject $listAppGateways -Depth 7 | Out-File "..//data/${outFolder}/appGateways.json"
+ConvertTo-Json -InputObject $listVnetGateways -Depth 7 | Out-File "..//data/${outFolder}/vnetGateways.json"
+ConvertTo-Json -InputObject $listGatewayConnections -Depth 7 | Out-File "..//data/${outFolder}/connections.json"
+ConvertTo-Json -InputObject $listExpressRouteCircuits -Depth 7 | Out-File "..//data/${outFolder}/expressRouteCircuits.json"

@@ -1,5 +1,8 @@
 $dictData = @{}
-$sourceFiles = Get-ChildItem -Path '..//data'
+$contextInfo = Get-Content ./config.json | ConvertFrom-Json
+$folder = $contextInfo.subscriptionId
+$diagramFileName = $folder + ".puml"
+$sourceFiles = Get-ChildItem -Path "..//data/${folder}"
 
 foreach ($file in $sourceFiles) {
     $dataItems = Get-Content $file.PSPath | ConvertFrom-Json
@@ -218,7 +221,7 @@ foreach ($regionName in $regions) {
 
     for ($i=0; $i -lt $subscriptionMarkupIdList.Count; $i++) {
         if ($i -gt 0) {
-            $hiddenSubscriptionLinkMarkup += "`t`t{0} -----[hidden]d-> {1}`n" -f $subscriptionMarkupIdList[$i-1], $subscriptionMarkupIdList[$i]
+            $hiddenSubscriptionLinkMarkup += "`t`t{0} --------[hidden]d-> {1}`n" -f $subscriptionMarkupIdList[$i-1], $subscriptionMarkupIdList[$i]
         }
     }
 
@@ -247,7 +250,7 @@ foreach($vnet in $dictData['vnets']) {
             if ($remoteVnetId -in $vnetIds ) {
                 # check to see if there is already a peering. No need to complicate the diagram with bi-directional peering
                 if (! $dictPeerings.ContainsKey($remoteVnetId)) {
-                    $peeringMarkup = "{0} <-[thickness=8,#green]> {1}" -f $vnet.Name.Replace("-", ""), $remoteVnetId.Replace("-", "")
+                    $peeringMarkup = "{0} -[thickness=8,#green] {1}" -f $vnet.Name.Replace("-", ""), $remoteVnetId.Replace("-", "")
                     $vnetPeerings += "`n" + $peeringMarkup
                     $dictPeerings.Add($vnet.Name, $remoteVnetId)
                 }
@@ -338,7 +341,6 @@ foreach ($subscrption in $expressRouteSubscriptions) {
 
 $diagramContent += $vnetPeerings
 $diagramContent += $hybridConnectivityMarkup
-
 $diagram = $diagram.Replace("[BODY]", $diagramContent)
 $diagram = $diagram.Replace("[TITLE]", "sample-diagram")
-$diagram | Out-File "network-diag.puml"
+$diagram | Out-File $diagramFileName
