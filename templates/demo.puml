@@ -1,0 +1,127 @@
+@startuml demo-diagram
+
+!define AzurePuml https://raw.githubusercontent.com/travisnielsen/Azure-PlantUML/themesupport/dist
+
+' THEME
+!include AzurePuml/themes/dracula.puml
+
+!includeurl AzurePuml/Analytics/AzureEventHub.puml
+!includeurl AzurePuml/Databases/AzureCosmosDb.puml
+!includeurl AzurePuml/Compute/AzureFunction.puml
+!includeurl AzurePuml/Compute/AzureVirtualMachine.puml
+!includeurl AzurePuml/Databases/AzureSqlDataWarehouse.puml
+!includeurl AzurePuml/Databases/AzureDataFactory.puml
+!includeurl AzurePuml/Identity/AzureActiveDirectory.puml
+!includeurl AzurePuml/Management/AzureManagementPortal.puml
+!includeurl AzurePuml/Networking/AzureBastion.puml
+!includeurl AzurePuml/Management/AzureSubscription.puml
+!includeurl AzurePuml/Networking/AzureFirewall.puml
+!includeurl AzurePuml/Networking/AzureVirtualNetwork.puml
+!includeurl AzurePuml/Networking/AzurePrivateLink.puml
+!includeurl AzurePuml/Networking/AzureSubnet.puml
+!includeurl AzurePuml/Networking/AzureExpressRoute.puml
+!includeurl AzurePuml/Networking/AzurePublicIPAddress.puml
+!includeurl AzurePuml/Networking/AzureRouteTable.puml
+!includeurl AzurePuml/Networking/AzureApplicationGateway.puml
+!includeurl AzurePuml/Networking/AzureNAT.puml
+!includeurl AzurePuml/Networking/AzureNSG.puml
+!includeurl AzurePuml/Networking/AzureVPNGateway.puml
+!includeurl AzurePuml/Storage/AzureDataLakeStorage.puml
+
+
+' COLOR OPTIONS WITH THE DRACULA THEME
+' BACKGROUND, SELECTION, FOREGROUND, COMMENT
+' CYAN, GREEN, ORANGE, PINK, PURPLE, RED, YELLOW
+
+skinparam rectangle<<e_stereo>> {
+    BackgroundColor<<Region>> SELECTION
+    BackgroundColor<<AzureVirtualNetwork>> BACKGROUND
+    BorderColor<<AzureVirtualNetwork>> ORANGE
+    BackgroundColor<<AzureSubnet>> SELECTION
+    BorderColor<<AzureSubnet>> ORANGE
+    BorderColor<<AzureRouteTable>> ORANGE
+    BorderColor<<AzurePrivateLink>> ORANGE
+    BorderColor<<AzureVirtualMachine>> PURPLE
+    BorderColor<<AzureFunction>> PURPLE
+    BorderColor<<AzureDataLakeStorage>> CYAN
+    BorderColor<<AzureSqlDataWarehouse>> CYAN
+    BorderColor<<AzureDataFactory>> CYAN
+    BorderColor<<AzureFirewall>> RED
+    BorderColor<<AzureNSG>> RED
+}
+
+LAYOUT_LEFT_RIGHT
+
+AzureVirtualNetwork(vnetHub, "vnethub", "null") {
+    AzureSubnet(subFirewall, "firewall", "10.10.1.0/25") {
+        AzureFirewall(azfw, "Hub Firewall", " Basic SKU ", "Deny egress (default)", RED)
+    }
+
+    AzureSubnet(subBastion, "bastion", "") {
+        AzureBastion(bastion, "Remote Access", "", "SSH / RDP Proxy")
+    }
+}
+
+AzureVirtualNetwork(vnetSpoke, "vnet-spoke", "10.20.0.0/20") {
+
+    AzureSubnet(subUtil, "utility", "") {
+        together {
+            AzureVirtualMachine(vm, "Utility Servers", null, "Allow SSH / RDP from Bastion subnet", PURPLE)
+            AzureRouteTable(udr1, "User Defined Route", "Force egress to hub", "0.0.0.0 to AZFW", ORANGE)
+            AzureNSG(nsgutil, "Traffic Segmentation", null, "Deny outbound Internet\nExplicit inbound allow", RED)
+            nsgutil -[hidden]d- udr1
+            udr1 -[hidden]d- vm
+            ' udr1 -[hidden]d- nsgutil
+        }
+
+    }
+
+    AzureSubnet(subPrivateLinks, "privatelinks", "") {
+        together {
+            AzurePrivateLink(azsvcLink, "Azure Services", null, "Inbound connections", ORANGE)
+            AzureNSG(nsgprivatelinks, "Traffic Segmentation", null, "Deny outbound Internet\nExplicit inbound allow", RED)
+            nsgprivatelinks -[hidden]d- azsvcLink
+        }
+    }
+
+    AzureSubnet(subFuncInt, "func-integration", "") {
+        together {
+            AzurePublicIPAddress(funcips, "Function Outbound", null, "IP addresses for outbound access", ORANGE)
+            AzureRouteTable(udr2, "User Defined Route", "Force egress to hub", "0.0.0.0 to AZFW", ORANGE)
+            AzureNSG(nsgintegration, "Traffic Segmentation", null, "Deny outbound Internet\nExplicit inbound allow", RED)
+            nsgintegration -[hidden]d- udr2
+            udr2 -[hidden]d- funcips
+        }
+
+    }
+}
+
+actor admins as users
+AzureActiveDirectory(aad, "Corprate tenant", "", "MFA\nConditional Access")
+AzureManagementPortal(portal, "Azure Portal", "", "Connect to utility servers")
+users -[#b48900]-> aad: "<color:#b48900>Authentication"
+users -[#d33682]-> portal
+portal -[#d33682]-> bastion: "<color:#d33682>https"
+bastion -[#d33682]-> nsgutil: "<color:#d33682>RDP/SSH"
+
+vnetHub -[ORANGE]-- vnetSpoke: "<color:ORANGE><size:18>VNET\n<color:ORANGE><size:18>Peering"
+
+together {
+    AzureDataLakeStorage(adls, "Data Lake", "Standard SKU", "Source data", CYAN)
+    AzureSqlDataWarehouse(sqldw, "Enriched Data", null, null, CYAN)
+    AzureDataFactory(datafactory, "Data Processing", "Managed Virtual Network", "ETL jobs", CYAN)
+}
+
+azsvcLink -[#859900]----> adls: "<color:#859900>Private Link"
+azsvcLink -[#859900]----> sqldw: "<color:#859900>Private Link"
+azsvcLink <-[#2aa198]---- datafactory: "<color:#2aa198>data access"
+
+' AzureFunction(functions, "Business Logic", "Premium Plan", "Private storage account for service (preview)", #bd93f9)
+' AzureFunction(functions, "Business Logic", "Premium Plan", null, #bd93f9)
+AzureFunction(functions, "Business Logic", "Premium", "This is a function", PURPLE)
+azsvcLink -[#859900]----> functions: "<color:#859900>Private Link"
+funcips <-[#2aa198]- functions: "<color:#2aa198>VNET Integration (outbound)"
+   
+
+
+@end

@@ -10,3 +10,4 @@ scripts/*.puml
 # exported diagrams
 out/*
 img/*
+media/*
