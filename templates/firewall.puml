@@ -1,1 +1,1 @@
-AzureFirewall([id], [name], [technology], [description])
+AzureFirewall([id], [name], [technology], [description], RED)

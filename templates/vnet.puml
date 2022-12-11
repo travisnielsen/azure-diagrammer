@@ -1,3 +1,3 @@
-        AzureVirtualNetwork([id], [name], [technology], [description]) [style] {
+        AzureVirtualNetwork([id], [name], [technology], [description], ORANGE) [style] {
             [subnets]
         }

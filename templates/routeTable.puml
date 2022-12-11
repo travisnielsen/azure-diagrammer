@@ -1,1 +1,1 @@
-AzureRouteTable([id], [name], [technology], [description])
+AzureRouteTable([id], [name], [technology], [description], ORANGE)

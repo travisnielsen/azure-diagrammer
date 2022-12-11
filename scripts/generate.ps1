@@ -250,7 +250,7 @@ foreach($vnet in $dictData['vnets']) {
             if ($remoteVnetId -in $vnetIds ) {
                 # check to see if there is already a peering. No need to complicate the diagram with bi-directional peering
                 if (! $dictPeerings.ContainsKey($remoteVnetId)) {
-                    $peeringMarkup = "{0} -[thickness=8,#green] {1}" -f $vnet.Name.Replace("-", ""), $remoteVnetId.Replace("-", "")
+                    $peeringMarkup = "{0} -[thickness=16,dashed,#ffb86c] {1}" -f $vnet.Name.Replace("-", ""), $remoteVnetId.Replace("-", "")
                     $vnetPeerings += "`n" + $peeringMarkup
                     $dictPeerings.Add($vnet.Name, $remoteVnetId)
                 }
@@ -342,5 +342,5 @@ foreach ($subscrption in $expressRouteSubscriptions) {
 $diagramContent += $vnetPeerings
 $diagramContent += $hybridConnectivityMarkup
 $diagram = $diagram.Replace("[BODY]", $diagramContent)
-$diagram = $diagram.Replace("[TITLE]", "sample-diagram")
+$diagram = $diagram.Replace("[TITLE]", $folder)
 $diagram | Out-File $diagramFileName

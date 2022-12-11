@@ -4,7 +4,7 @@
 skinparam linetype ortho
 
 !define AzurePuml https://raw.githubusercontent.com/travisnielsen/Azure-PlantUML/themesupport/dist
-!includeurl AzurePuml/themes/blueprint.puml
+!includeurl AzurePuml/themes/dracula.puml
 !includeurl AzurePuml/Management/AzureSubscription.puml
 !includeurl AzurePuml/Networking/AzureFirewall.puml
 !includeurl AzurePuml/Networking/AzureVirtualNetwork.puml
@@ -19,9 +19,35 @@ skinparam linetype ortho
 ' LAYOUT_LEFT_RIGHT
 
 skinparam Rectangle {
-	BorderColor<<peered>> green
-	BorderThickness<<peered>> 8
+	BorderColor<<peered>> ORANGE
+	BorderThickness<<peered>> 10
 }
+
+skinparam rectangle<<e_stereo>> {
+    BackgroundColor<<Region>> BACKGROUND
+	BorderColor<<Region>> RED
+	BackgroundColor<<AzureSubscription>> SELECTION
+	BorderColor<<AzureSubscription>> CYAN
+    BackgroundColor<<AzureVirtualNetwork>> BACKGROUND
+    BorderColor<<AzureVirtualNetwork>> ORANGE
+    BackgroundColor<<AzureSubnet>> SELECTION
+    BorderColor<<AzureSubnet>> ORANGE
+    BorderColor<<AzureRouteTable>> ORANGE
+    BorderColor<<AzurePrivateLink>> ORANGE
+	BorderColor<<AzureExpressRoute>> ORANGE
+	BorderColor<<AzureVPNGateway>> ORANGE
+    BorderColor<<AzureVirtualMachine>> PURPLE
+    BorderColor<<AzureFunction>> PURPLE
+    BorderColor<<AzureDataLakeStorage>> CYAN
+    BorderColor<<AzureSqlDataWarehouse>> CYAN
+    BorderColor<<AzureDataFactory>> CYAN
+    BorderColor<<AzureFirewall>> RED
+    BorderColor<<AzureNSG>> RED
+}
+
+skinparam BackgroundColor #000
+skinparam ranksep 50
+skinparam nodesep 50
 
 [BODY]
 

@@ -1,1 +1,1 @@
-AzureNSG([id], [name], [technology], [description])
+AzureNSG([id], [name], [technology], [description], RED)

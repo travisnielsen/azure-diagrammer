@@ -4,6 +4,7 @@
 
 ' THEME
 !include AzurePuml/themes/dracula.puml
+' !include C:\Users\trn\repos\Azure-PlantUML\dist\themes\dracula.puml
 
 !includeurl AzurePuml/Analytics/AzureEventHub.puml
 !includeurl AzurePuml/Databases/AzureCosmosDb.puml
@@ -62,7 +63,7 @@ AzureVirtualNetwork(vnetHub, "vnethub", "null") {
     }
 }
 
-AzureVirtualNetwork(vnetSpoke, "vnet-spoke", "10.20.0.0/20") {
+AzureVirtualNetwork(vnetSpoke, "vnet-spoke", "", "10.20.0.0/20") {
 
     AzureSubnet(subUtil, "utility", "") {
         together {

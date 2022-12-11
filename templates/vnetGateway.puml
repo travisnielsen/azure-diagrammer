@@ -1,1 +1,1 @@
-AzureVPNGateway([id], [name], [technology], [description])
+AzureVPNGateway([id], [name], [technology], [description], ORANGE)
