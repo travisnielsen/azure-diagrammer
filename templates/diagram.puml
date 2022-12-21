@@ -20,12 +20,16 @@ skinparam linetype ortho
 
 skinparam Rectangle {
 	BorderColor<<peered>> ORANGE
-	BorderThickness<<peered>> 10
+	BorderThickness<<peered>> 8
 }
 
 skinparam rectangle<<e_stereo>> {
     BackgroundColor<<Region>> BACKGROUND
 	BorderColor<<Region>> RED
+    FontColor<<Region>> RED
+	FontSize<<Region>> 32
+	StereotypeFontSize<<Region>> 16
+	StereotypeFontColor<<Region>> WHITE
 	BackgroundColor<<AzureSubscription>> SELECTION
 	BorderColor<<AzureSubscription>> CYAN
     BackgroundColor<<AzureVirtualNetwork>> BACKGROUND

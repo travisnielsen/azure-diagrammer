@@ -309,7 +309,7 @@ foreach ($subscrption in $expressRouteSubscriptions) {
         $bandwidthMbps = $circuit.Properties.serviceProviderProperties.bandwidthInMbps
         switch ($bandwidthMbps) {
             5000 { $lineThickness = 4 }
-            10000 { $lineThickness = 8 }
+            10000 { $lineThickness = 5 }
             default { $lineThickness = 3 }
         }
 
