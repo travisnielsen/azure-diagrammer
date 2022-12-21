@@ -18,8 +18,10 @@
 !includeurl AzurePuml/Management/AzureSubscription.puml
 !includeurl AzurePuml/Networking/AzureFirewall.puml
 !includeurl AzurePuml/Networking/AzureVirtualNetwork.puml
+' !include C:\Users\trn\repos\Azure-PlantUML\dist\Networking\AzureVirtualNetwork.puml
 !includeurl AzurePuml/Networking/AzurePrivateLink.puml
 !includeurl AzurePuml/Networking/AzureSubnet.puml
+' !include C:\Users\trn\repos\Azure-PlantUML\dist\Networking\AzureSubnet.puml
 !includeurl AzurePuml/Networking/AzureExpressRoute.puml
 !includeurl AzurePuml/Networking/AzurePublicIPAddress.puml
 !includeurl AzurePuml/Networking/AzureRouteTable.puml
@@ -53,31 +55,30 @@ skinparam rectangle<<e_stereo>> {
 
 LAYOUT_LEFT_RIGHT
 
-AzureVirtualNetwork(vnetHub, "vnethub", "null") {
-    AzureSubnet(subFirewall, "firewall", "10.10.1.0/25") {
+AzureVirtualNetwork(vnetHub, "vnethub", null, null) {
+    AzureSubnet(subFirewall, "firewall", null, "10.10.1.0/25") {
         AzureFirewall(azfw, "Hub Firewall", " Basic SKU ", "Deny egress (default)", RED)
     }
 
-    AzureSubnet(subBastion, "bastion", "") {
-        AzureBastion(bastion, "Remote Access", "", "SSH / RDP Proxy")
+    AzureSubnet(subBastion, "bastion", null, null) {
+        AzureBastion(bastion, "Remote Access", "Standard SKU", "SSH / RDP Proxy")
     }
 }
 
-AzureVirtualNetwork(vnetSpoke, "vnet-spoke", "", "10.20.0.0/20") {
+AzureVirtualNetwork(vnetSpoke, "vnet-spoke", null, "10.20.0.0/20") {
 
-    AzureSubnet(subUtil, "utility", "") {
+    AzureSubnet(subUtil, "utility", null, null) {
         together {
             AzureVirtualMachine(vm, "Utility Servers", null, "Allow SSH / RDP from Bastion subnet", PURPLE)
-            AzureRouteTable(udr1, "User Defined Route", "Force egress to hub", "0.0.0.0 to AZFW", ORANGE)
+            AzureRouteTable(udr1, "Egress Control", null, "0.0.0.0 to AZFW", ORANGE)
             AzureNSG(nsgutil, "Traffic Segmentation", null, "Deny outbound Internet\nExplicit inbound allow", RED)
             nsgutil -[hidden]d- udr1
             udr1 -[hidden]d- vm
             ' udr1 -[hidden]d- nsgutil
         }
-
     }
 
-    AzureSubnet(subPrivateLinks, "privatelinks", "") {
+    AzureSubnet(subPrivateLinks, "privatelinks", null, null) {
         together {
             AzurePrivateLink(azsvcLink, "Azure Services", null, "Inbound connections", ORANGE)
             AzureNSG(nsgprivatelinks, "Traffic Segmentation", null, "Deny outbound Internet\nExplicit inbound allow", RED)
@@ -85,21 +86,20 @@ AzureVirtualNetwork(vnetSpoke, "vnet-spoke", "", "10.20.0.0/20") {
         }
     }
 
-    AzureSubnet(subFuncInt, "func-integration", "") {
+    AzureSubnet(subFuncInt, "func-integration", null, null) {
         together {
             AzurePublicIPAddress(funcips, "Function Outbound", null, "IP addresses for outbound access", ORANGE)
-            AzureRouteTable(udr2, "User Defined Route", "Force egress to hub", "0.0.0.0 to AZFW", ORANGE)
+            AzureRouteTable(udr2, "Egress Control", null, "0.0.0.0 to AZFW", ORANGE)
             AzureNSG(nsgintegration, "Traffic Segmentation", null, "Deny outbound Internet\nExplicit inbound allow", RED)
             nsgintegration -[hidden]d- udr2
             udr2 -[hidden]d- funcips
         }
-
     }
 }
 
 actor admins as users
-AzureActiveDirectory(aad, "Corprate tenant", "", "MFA\nConditional Access")
-AzureManagementPortal(portal, "Azure Portal", "", "Connect to utility servers")
+AzureActiveDirectory(aad, "Corprate tenant", null, "MFA\nConditional Access")
+AzureManagementPortal(portal, "Azure Portal", null, "Connect to utility servers")
 users -[#b48900]-> aad: "<color:#b48900>Authentication"
 users -[#d33682]-> portal
 portal -[#d33682]-> bastion: "<color:#d33682>https"
@@ -122,7 +122,5 @@ azsvcLink <-[#2aa198]---- datafactory: "<color:#2aa198>data access"
 AzureFunction(functions, "Business Logic", "Premium", "This is a function", PURPLE)
 azsvcLink -[#859900]----> functions: "<color:#859900>Private Link"
 funcips <-[#2aa198]- functions: "<color:#2aa198>VNET Integration (outbound)"
-   
-
 
 @end
