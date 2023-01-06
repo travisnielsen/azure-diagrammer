@@ -1,3 +1,0 @@
-        AzureVirtualNetwork([id], [name], [technology], [description], ORANGE) [style] {
-            [subnets]
-        }

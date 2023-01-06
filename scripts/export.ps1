@@ -48,6 +48,30 @@ foreach ($vnetId in $listRemoteVnetIds) {
     $listVnets.Add($remoteVnet)
 }
 
+
+# identify other subscriptions based on VNET Gateway Connection objects
+# ExpressRoute circuits are often placed in separate / isolated subscriptions
+
+$listGatewayConnections = New-Object -TypeName 'System.Collections.ArrayList'
+
+foreach ($subscription in $listSubscriptions | Select-Object -Unique) {
+    Set-AzContext -Subscription $subscription
+    Get-AzResource -ResourceType "Microsoft.Network/connections" -ExpandProperties | ForEach-Object { $listGatewayConnections.Add($_) }
+
+    foreach ($connection in $listGatewayConnections) {
+        $connectionPeerId = $connection.properties.peer.id
+
+        # Only concerned about ER circuits in isolated subscriptions
+
+        if ($connectionPeerId) {
+            $connectionPeerSubscriptionId = $connectionPeerId.Split("/")[2]
+            if ($subscriptions -notcontains $connectionPeerSubscriptionId) {
+                $listSubscriptions.Add($connectionPeerSubscriptionId)
+            }
+        }
+    }
+}
+
 $subscriptions = $listSubscriptions | Select-Object -Unique
 $listSubscriptionInfo = New-Object -TypeName 'System.Collections.ArrayList'
 $listRouteTables = New-Object -TypeName 'System.Collections.ArrayList'

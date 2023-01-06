@@ -1,3 +1,0 @@
-    AzureSubscription([id], [name], [technology], [description], CYAN) {
-        [services]
-    }

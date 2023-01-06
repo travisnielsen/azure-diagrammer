@@ -1,0 +1,3 @@
+AzureSubscription([id], [name], null, null, CYAN) {
+    [services]
+}

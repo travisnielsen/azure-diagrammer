@@ -12,6 +12,7 @@ skinparam linetype ortho
 !includeurl AzurePuml/Networking/AzureExpressRoute.puml
 !includeurl AzurePuml/Networking/AzureRouteTable.puml
 !includeurl AzurePuml/Networking/AzureApplicationGateway.puml
+!includeurl AzurePuml/Networking/AzureLoadBalancer.puml
 !includeurl AzurePuml/Networking/AzureNAT.puml
 !includeurl AzurePuml/Networking/AzureNSG.puml
 !includeurl AzurePuml/Networking/AzureVPNGateway.puml
