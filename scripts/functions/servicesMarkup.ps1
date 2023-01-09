@@ -1,8 +1,5 @@
 function Get-RouteTableMarkup {
-    param ( 
-        [Parameter(Mandatory=$true)] $Data
-    )
-
+    param ( [Parameter(Mandatory=$true)] $Data )
     $routeTableTemplate = Get-Content './templates/routeTable.puml' -Raw
     $routeTableMarkup = $routeTableTemplate
     $routeTableMarkup = $routeTableMarkup.Replace("[id]", $Data.name.Replace("-", ""))
@@ -13,10 +10,7 @@ function Get-RouteTableMarkup {
 }
 
 function Get-NsgMarkup {
-    param ( 
-        [Parameter(Mandatory=$true)] $Data
-    )
-
+    param ( [Parameter(Mandatory=$true)] $Data )
     $nsgTemplate = Get-Content './templates/nsg.puml' -Raw
     $nsgMarkup = $nsgTemplate
     $nsgMarkup = $nsgMarkup.Replace("[id]", $Data.name.Replace("-", ""))
@@ -27,10 +21,7 @@ function Get-NsgMarkup {
 }
 
 function Get-VnetGatewayMarkup {
-    param ( 
-        [Parameter(Mandatory=$true)] $Data
-    )
-
+    param ( [Parameter(Mandatory=$true)] $Data )
     $vnetGatewayTemplate = Get-Content './templates/vnetGateway.puml' -Raw
     $gatewayMarkupId = $Data.name.Replace("-", "")
     $gatewayMarkup = "`t`t`t" + $vnetGatewayTemplate
@@ -43,10 +34,7 @@ function Get-VnetGatewayMarkup {
 }
 
 function Get-FirewallMarkup {
-    param ( 
-        [Parameter(Mandatory=$true)] $Data
-    )
-
+    param ( [Parameter(Mandatory=$true)] $Data )
     $firewallTemplate = Get-Content './templates/firewall.puml' -Raw
     $firewallMarkup = $firewallTemplate
     $firewallMarkup = $firewallMarkup.Replace("[id]", $Data.name.Replace("-", ""))
@@ -57,10 +45,7 @@ function Get-FirewallMarkup {
 }
 
 function Get-LoadBalancerMarkup {
-    param ( 
-        [Parameter(Mandatory=$true)] $Data
-    )
-
+    param ( [Parameter(Mandatory=$true)] $Data )
     $loadBalancerTemplate = Get-Content './templates/loadBalancer.puml' -Raw
     $loadBalancerMarkup = $loadBalancerTemplate
     $loadBalancerMarkup = $loadBalancerMarkup.Replace("[id]", $Data.name.Replace("-", ""))
@@ -69,3 +54,38 @@ function Get-LoadBalancerMarkup {
     $loadBalancerMarkup = $loadBalancerMarkup.Replace("[description]", "`"<B>{0}</B>`"" -f "TBD" )
     $loadBalancerMarkup
 }
+
+function Get-ApimMarkup {
+    param ( [Parameter(Mandatory=$true)] $Data )
+    $apimTemplate = Get-Content './templates/apim.puml' -Raw
+    $apimMarkup = $apimTemplate
+    $apimMarkup = $apimMarkup.Replace("[id]", $Data.name.Replace("-", ""))
+    $apimMarkup = $apimMarkup.Replace("[name]", "`"{0}`"" -f $Data.Name)
+    $technologyText = "`"SKU: {0}\nInstances: {1}`"" -f $Data.Sku.Name, $Data.Sku.Capacity
+    $apimMarkup = $apimMarkup.Replace("[technology]", $technologyText)
+    $descriptionText = "`"<B>{0}</B> ({1})`"" -f $Data.Properties.gatewayUrl, $Data.Properties.privateIdAddpresses[0]
+    $apimMarkup = $apimMarkup.Replace("[description]", $descriptionText )
+    $apimMarkup
+}
+
+function Get-DataBricksMarkup {
+    param ( [Parameter(Mandatory=$true,Position=0)] $Data,
+            [Parameter(Mandatory=$true,Position=1)] $IsPrivateSubnet 
+     )
+    $adbTemplate = Get-Content './templates/databricks.puml' -Raw
+    $adbMarkup = $adbTemplate
+    
+    if ($IsPrivateSubnet) {
+        $adbMarkup = $adbMarkup.Replace("[id]", $Data.name.Replace("-", "") + "private")
+        $adbMarkup = $adbMarkup.Replace("[name]", "`"{0} (Private)`"" -f $Data.Name)
+    } else {
+        $adbMarkup = $adbMarkup.Replace("[id]", $Data.name.Replace("-", "") + "public")
+        $adbMarkup = $adbMarkup.Replace("[name]", "`"{0} (Public)`"" -f $Data.Name) 
+    }
+
+    # $adbMarkup = $adbMarkup.Replace("[name]", "`"{0}`"" -f $Data.Name)
+    $adbMarkup = $adbMarkup.Replace("[technology]", "`"SKU: {0}`"" -f $Data.Sku.Name)
+    $adbMarkup = $adbMarkup.Replace("[description]", "null" )
+    $adbMarkup
+}
+

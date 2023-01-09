@@ -111,16 +111,28 @@ foreach ($service in $services) {
 
 New-Item -Path "..//data/${outFolder}" -ItemType Directory -ErrorAction Ignore
 
-ConvertTo-Json -InputObject $listSubscriptionInfo -Depth 7 | Out-File "..//data/${outFolder}/subscriptions.json"
-ConvertTo-Json -InputObject $listVnets -Depth 7 | Out-File "..//data/${outFolder}/vnets.json"
-ConvertTo-Json -InputObject $listRouteTables -Depth 7 | Out-File "..//data/${outFolder}/routeTables.json"
-ConvertTo-Json -InputObject $listFirewalls -Depth 7 | Out-File "..//data/${outFolder}/firewalls.json"
-ConvertTo-Json -InputObject $listNatGateways -Depth 7 | Out-File "..//data/${outFolder}/natGateways.json"
-ConvertTo-Json -InputObject $listVnetGateways -Depth 7 | Out-File "..//data/${outFolder}/vnetGateways.json"
-ConvertTo-Json -InputObject $listGatewayConnections -Depth 7 | Out-File "..//data/${outFolder}/connections.json"
-ConvertTo-Json -InputObject $listExpressRouteCircuits -Depth 7 | Out-File "..//data/${outFolder}/expressRouteCircuits.json"
+ConvertTo-Json -InputObject $listSubscriptionInfo -Depth 20 | Out-File "..//data/${outFolder}/subscriptions.json"
+ConvertTo-Json -InputObject $listVnets -Depth 20 | Out-File "..//data/${outFolder}/vnets.json"
+ConvertTo-Json -InputObject $listRouteTables -Depth 20 | Out-File "..//data/${outFolder}/routeTables.json"
+ConvertTo-Json -InputObject $listFirewalls -Depth 20 | Out-File "..//data/${outFolder}/firewalls.json"
+ConvertTo-Json -InputObject $listNatGateways -Depth 20 | Out-File "..//data/${outFolder}/natGateways.json"
+ConvertTo-Json -InputObject $listVnetGateways -Depth 20 | Out-File "..//data/${outFolder}/vnetGateways.json"
+ConvertTo-Json -InputObject $listGatewayConnections -Depth 20 | Out-File "..//data/${outFolder}/gatewayConnections.json"
+ConvertTo-Json -InputObject $listExpressRouteCircuits -Depth 20 | Out-File "..//data/${outFolder}/expressRouteCircuits.json"
 
 $dictServices.GetEnumerator() | ForEach-Object {
     $filename = $_.key.Split("/")[1]
-    ConvertTo-Json -InputObject $_.value -Depth 7 | Out-File "..//data/${outFolder}/${filename}.json"
+
+    switch ($_.Key)
+    {
+        "Microsoft.ServiceBus/namespaces" { $filename = "serviceBusNamespaces"; Break }
+        "Microsoft.EventHub/clusters" { $filename = "eventHubClusters"; Break }
+        "Microsoft.EventHub/namespaces" { $filename = "eventHubNamespaces"; Break }
+        "Microsoft.ApiManagement/service" { $filename = "apiManagement"; Break }
+        "Microsoft.ContainerService/managedClusters" { $filename = "apiManagement"; Break }
+        "Microsoft.DocumentDB/databaseAccounts" { $filename = "cosmosDbAccounts"; Break }
+        "Microsoft.ContainerService/managedClusters" { $filename = "azureKubernetesService"; Break }
+    }
+
+    ConvertTo-Json -InputObject $_.value -Depth 20 | Out-File "..//data/${outFolder}/${filename}.json"
 }

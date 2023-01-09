@@ -95,8 +95,8 @@ foreach ($subscription in $subscriptions) {
 
             $subnetMarkup = $subnetMarkup.Replace("[id]", $subnetMarkupId)
             $subnetMarkup = $subnetMarkup.Replace("[name]", "`"{0}`"" -f $subnet.name)
-            $subnetMarkup = $subnetMarkup.Replace("[technology]", "`"{0}`"" -f $subnet.properties.addressPrefix)
-            $subnetMarkup = $subnetMarkup.Replace("[description]", "`"{0}`"" -f "demo")
+            $subnetMarkup = $subnetMarkup.Replace("[technology]", "null")
+            $subnetMarkup = $subnetMarkup.Replace("[description]", "`"{0}`"" -f $subnet.properties.addressPrefix)
 
             $subnetServicesMarkup = ""
 
@@ -122,7 +122,7 @@ foreach ($subscription in $subscriptions) {
                 $subnetServicesMarkup += $gatewayMarkup + "`n"
 
                 # Add gateway connection to global list
-                $dictData["connections"] | Where-Object { $_.Properties.virtualNetworkGateway1.id -eq $vnetGateway.Id } | ForEach-Object { $gatewayConnections.Add($_) }
+                $dictData["gatewayConnections"] | Where-Object { $_.Properties.virtualNetworkGateway1.id -eq $vnetGateway.Id } | ForEach-Object { $gatewayConnections.Add($_) }
             }
 
             $firewall = $dictData["firewalls"] | Where-Object { $_.Properties.ipConfigurations[0].properties.subnet.id -eq $subnet.id }
@@ -138,6 +138,28 @@ foreach ($subscription in $subscriptions) {
                     $subnetServicesMarkup += $loadBalancerMarkup + "`n"   
                 }
             }
+
+            $apimInstances = $dictData["apiManagement"] | Where-Object { $_.Properties.virtualNetworkConfiguration.subnetResourceId -eq $subnet.id }
+            if ($apimInstances) {
+                foreach ($apim in $apimInstances) {
+                    $apimMarkup = Get-ApimMarkup $apim
+                    $subnetServicesMarkup += $apimMarkup + "`n"
+                }
+            }
+
+            $databricksWorkspacePrivate = $dictData["workspaces"] | Where-Object { $_.Properties.parameters.customPrivateSubnetName.value -eq $subnet.name }
+            if ($databricksWorkspacePrivate) {
+                $dataBricksMarkup = Get-DataBricksMarkup $databricksWorkspacePrivate $true
+                $subnetServicesMarkup += $dataBricksMarkup + "`n"
+            }
+
+            $databricksWorkspacePublic = $dictData["workspaces"] | Where-Object { $_.Properties.parameters.customPublicSubnetName.value -eq $subnet.name }
+            if ($databricksWorkspacePublic) {
+                $dataBricksMarkup = Get-DataBricksMarkup $databricksWorkspacePublic $false
+                $subnetServicesMarkup += $dataBricksMarkup + "`n"
+            }
+
+
 
             # append markup to subnet
             if ($subnetServicesMarkup) {
@@ -167,7 +189,21 @@ foreach ($subscription in $subscriptions) {
         $vnetMarkupList.Add($vnetMarkup)
     } # end VNETs
 
-    # append VNET data in order of peering status
+    <#
+    # append VNET data
+    foreach ($markup in $vnetMarkupList) {
+        $subscriptionServicesMarkupContainer += "`n"
+        $subscriptionServicesMarkupContainer += $markup + "`n"    
+    }
+    #>
+
+    # append VNETs in order of peering status
+
+    $islandVnetMarkup = $vnetMarkupList | Where-Object { $_ -notlike "*<<peered>>*"}
+    foreach ($markup in $islandVnetMarkup) {      
+        $subscriptionServicesMarkupContainer += "`n"
+        $subscriptionServicesMarkupContainer += $markup + "`n"     
+    }
 
     $peeredVnetMarkup = $vnetMarkupList | Where-Object { $_ -like "*<<peered>>*"}
     foreach ($markup in $peeredVnetMarkup) {      
@@ -175,11 +211,6 @@ foreach ($subscription in $subscriptions) {
         $subscriptionServicesMarkupContainer += $markup + "`n"     
     }
 
-    $islandVnetMarkup = $vnetMarkupList | Where-Object { $_ -notlike "*<<peered>>*"}
-    foreach ($markup in $islandVnetMarkup) {      
-        $subscriptionServicesMarkupContainer += "`n"
-        $subscriptionServicesMarkupContainer += $markup + "`n"     
-    }
 
     #
     # Azure Services (non-vnet integrated)
