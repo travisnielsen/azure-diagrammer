@@ -159,7 +159,13 @@ foreach ($subscription in $subscriptions) {
                 $subnetServicesMarkup += $dataBricksMarkup + "`n"
             }
 
-
+            $vmssInstances = $dictData["virtualMachineScaleSets"] | Where-Object { $_.Properties.virtualMachineProfile.networkProfile.networkInterfaceConfigurations[0].properties.ipConfigurations[0].properties.subnet.id -eq $subnet.id }
+            if ($vmssInstances) {
+                foreach ($vmss in $vmssInstances) {
+                    $vmssMarkup = Get-VmssMarkup $vmss
+                    $subnetServicesMarkup += $vmssMarkup + "`n"
+                }
+            }
 
             # append markup to subnet
             if ($subnetServicesMarkup) {

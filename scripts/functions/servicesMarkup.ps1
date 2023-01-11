@@ -89,3 +89,16 @@ function Get-DataBricksMarkup {
     $adbMarkup
 }
 
+function Get-VmssMarkup {
+    param ( [Parameter(Mandatory=$true)] $Data )
+    $vmssTemplate = Get-Content './templates/vmss.puml' -Raw
+    $vmssMarkup = $vmssTemplate
+    $vmssMarkup = $vmssMarkup.Replace("[id]", $Data.name.Replace("-", ""))
+    $vmssMarkup = $vmssMarkup.Replace("[name]", "`"{0}`"" -f $Data.Name)
+    $vmssMarkup = $vmssMarkup.Replace("[technology]", "`"SKU: {0}`"" -f $Data.Sku.Name)
+    $imagePublisher = $Data.Properties.virtualMachineProfile.storageProfile.imageReference.publisher
+    $imageVersion = $Data.Properties.virtualMachineProfile.storageProfile.imageReference.version
+    $descriptionMarkup = $imagePublisher + ": " + $imageVersion
+    $vmssMarkup = $vmssMarkup.Replace("[description]", "`"{0}`"" -f $descriptionMarkup )
+    $vmssMarkup
+}
