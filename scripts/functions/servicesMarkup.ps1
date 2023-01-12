@@ -1,22 +1,32 @@
+$linkPrefix = 
+
 function Get-RouteTableMarkup {
-    param ( [Parameter(Mandatory=$true)] $Data )
+    param (
+        [Parameter(Mandatory=$true)] $Data,
+        [Parameter(Mandatory=$true)] $LinkPrefix
+    )
     $routeTableTemplate = Get-Content './templates/routeTable.puml' -Raw
     $routeTableMarkup = $routeTableTemplate
     $routeTableMarkup = $routeTableMarkup.Replace("[id]", $Data.name.Replace("-", ""))
-    $routeTableMarkup = $routeTableMarkup.Replace("[name]", "`"{0}`"" -f $Data.name)
+    $routeTableMarkup = $routeTableMarkup.Replace("[name]", "Custom Routes")
     $routeTableMarkup = $routeTableMarkup.Replace("[technology]", "`"{0}`"" -f "null")
-    $routeTableMarkup = $routeTableMarkup.Replace("[description]", "`"{0}`"" -f "demo")
+    $serviceLink = $LinkPrefix + $Data.Id + "/routes"
+    $routeTableMarkup = $routeTableMarkup.Replace("[description]", "[[${serviceLink} Link]]")
     $routeTableMarkup
 }
 
 function Get-NsgMarkup {
-    param ( [Parameter(Mandatory=$true)] $Data )
+    param (
+        [Parameter(Mandatory=$true)] $Data,
+        [Parameter(Mandatory=$true)] $LinkPrefix
+    )
     $nsgTemplate = Get-Content './templates/nsg.puml' -Raw
     $nsgMarkup = $nsgTemplate
     $nsgMarkup = $nsgMarkup.Replace("[id]", $Data.name.Replace("-", ""))
-    $nsgMarkup = $nsgMarkup.Replace("[name]", "`"{0}`"" -f $Data.name)
+    $nsgMarkup = $nsgMarkup.Replace("[name]", "Network Rules")
     $nsgMarkup = $nsgMarkup.Replace("[technology]", "`"{0}`"" -f "null")
-    $nsgMarkup = $nsgMarkup.Replace("[description]", "`"{0}`"" -f "demo")
+    $serviceLink = $LinkPrefix + $Data.Id + "/overview"
+    $nsgMarkup = $nsgMarkup.Replace("[description]", "[[${serviceLink} Link]]")
     $nsgMarkup
 }
 

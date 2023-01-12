@@ -2,6 +2,7 @@ Import-Module -Name .\scripts.psd1 -Force
 
 $dictData = @{}
 $contextInfo = Get-Content ./config-v2.json | ConvertFrom-Json
+$linkPrefix = $contextInfo.linkPrefix
 $folder = $contextInfo.subscriptionName
 $diagramFileName = $folder + ".puml"
 $sourceFiles = Get-ChildItem -Path "..//data/${folder}"
@@ -103,14 +104,14 @@ foreach ($subscription in $subscriptions) {
             $routeTableId = $subnet.properties.routeTable.id
             if ($null -ne $routeTableId) {
                 $routeTable = $dictData['routeTables'] | Where-Object { $_.Id -eq $routeTableId }
-                $routeTableMarkup = Get-RouteTableMarkup $routeTable
+                $routeTableMarkup = Get-RouteTableMarkup $routeTable $linkPrefix
                 $subnetServicesMarkup += $routeTableMarkup + "`n"
             }
 
             $nsgId = $subnet.properties.networkSecurityGroup.id
             if ($null -ne $nsgId) {
                 $nsg = $dictData['networkSecurityGroups'] | Where-Object { $_.Id -eq $nsgId }
-                $nsgMarkup = Get-NsgMarkup $nsg
+                $nsgMarkup = Get-NsgMarkup $nsg $linkPrefix
                 $subnetServicesMarkup += $nsgMarkup + "`n"                
             }
 
@@ -251,7 +252,7 @@ $subscriptionsMarkupContainer += $hiddenSubscriptionLinkMarkup
 
 $dictPeerings = @{}
 $vnetPeerings = "`n"
-$vnetIds = @( $dictData['vnets'] | ForEach-Object {$_.Name } )
+$vnetIds = @( $dictData['vnets'] | Where-Object { $_.Location -eq $regionName } | ForEach-Object {$_.Name } )
 
 foreach($vnet in $dictData['vnets']) {
 
