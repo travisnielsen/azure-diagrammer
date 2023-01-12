@@ -17,7 +17,7 @@ $regionName = $contextInfo.region
 $expressRouteColors = @('red','orange','purple','aqua')
 
 $diagram = Get-Content './templates/diagram.puml' -Raw
-$regionTemplate = Get-Content './templates/region-v2.puml' -Raw
+$regionTemplate = Get-Content './templates/region.puml' -Raw
 $subscriptionTemplate = Get-Content './templates/subscription.puml'
 $vnetTemplate = Get-Content './templates/vnet.puml' -Raw
 $subnetTemplate = Get-Content './templates/subnet.puml' -Raw
@@ -33,7 +33,6 @@ $regionMarkup = $regionTemplate
 $subscriptionsMarkupContainer = ''
 $subscriptionMarkupIdList = New-Object -TypeName 'System.Collections.ArrayList'
 
-
 # subscriptions
 
 foreach ($subscription in $subscriptions) {
@@ -44,6 +43,7 @@ foreach ($subscription in $subscriptions) {
     $subscriptionMarkup = $subscriptionMarkup.Replace("[name]", "`"{0}`"" -f $subscription.Name)
     $subscriptionMarkup = $subscriptionMarkup.Replace("[technology]", "`"{0}`"" -f $subscription.Id)
     $subscriptionMarkup = $subscriptionMarkup.Replace("[description]", "`"{0}`"" -f "TBD")
+
 
     $vnetMarkupList = New-Object -TypeName 'System.Collections.ArrayList'
 
@@ -196,14 +196,6 @@ foreach ($subscription in $subscriptions) {
         $vnetMarkupList.Add($vnetMarkup)
     } # end VNETs
 
-    <#
-    # append VNET data
-    foreach ($markup in $vnetMarkupList) {
-        $subscriptionServicesMarkupContainer += "`n"
-        $subscriptionServicesMarkupContainer += $markup + "`n"    
-    }
-    #>
-
     # append VNETs in order of peering status
 
     $islandVnetMarkup = $vnetMarkupList | Where-Object { $_ -notlike "*<<peered>>*"}
@@ -223,14 +215,11 @@ foreach ($subscription in $subscriptions) {
     # Azure Services (non-vnet integrated)
     #
 
-
-
-
     $subscriptionMarkupIdList.Add($subscriptionMarkupId)
     $subscriptionMarkup = $subscriptionMarkup.Replace("[services]", $subscriptionServicesMarkupContainer)
     $subscriptionsMarkupContainer += "`n" + $subscriptionMarkup
 
-} # end subscription
+} # end subscriptions
 
 $regionMarkup = $regionMarkup.Replace("[subscriptions]", $subscriptionsMarkupContainer)
 $diagramContent += "`n`n"
@@ -242,11 +231,12 @@ $hiddenSubscriptionLinkMarkup = "`n"
 
 for ($i=0; $i -lt $subscriptionMarkupIdList.Count; $i++) {
     if ($i -gt 0) {
-        $hiddenSubscriptionLinkMarkup += "`t`t{0} --------[hidden]d-> {1}`n" -f $subscriptionMarkupIdList[$i-1], $subscriptionMarkupIdList[$i]
+        $hiddenSubscriptionLinkMarkup += "{0} --------[hidden]d-> {1}`n" -f $subscriptionMarkupIdList[$i-1], $subscriptionMarkupIdList[$i]
     }
 }
 
-$subscriptionsMarkupContainer += $hiddenSubscriptionLinkMarkup
+$diagramContent += "`n"
+$diagramContent += $hiddenSubscriptionLinkMarkup
 
 # VNET Peerings
 

@@ -26,6 +26,7 @@ skinparam linetype ortho
 skinparam Rectangle {
 	BorderColor<<peered>> ORANGE
 	BorderThickness<<peered>> 8
+    BorderColor<<container>> #000
     BackgroundColor<<container>> #000
     Color<<container>> #000
     FontColor<<container>> #000
@@ -57,6 +58,7 @@ skinparam rectangle<<e_stereo>> {
     BorderColor<<AzureNSG>> RED
     BorderColor<<AzureAPIManagement>> CYAN
     BorderColor<<AzureDatabricks>> PINK
+    BorderColor<<AzureVirtualMachineScaleSet>> CYAN
 }
 
 skinparam BackgroundColor #000
