@@ -1,4 +1,38 @@
-$linkPrefix = 
+function Get-PaasMarkup {
+    param (
+        [Parameter(Mandatory=$true)] $PaasName,
+        [Parameter(Mandatory=$true)] $DictData,
+        [Parameter(Mandatory=$true)] $RegionName,
+        [Parameter(Mandatory=$true)] $SubscriptionId
+    )
+
+    $paasMarkup = ""
+
+    switch ($PaasName) {
+        "sites" { $paasMarkup = Get-AppServiceMarkup $DictData["sites"] $DictData["serverfarms"] $RegionName $SubscriptionId }
+        # "eventHubNamespaces" { $paasMarkup = Get-EventHubMarkup $DictData["eventHubNamespaces"] $DictData["eventHubClusters"] }
+        # "serviceBusNamespaces" { $paasMarkup = Get-ServiceBusMarkup $DictData["serviceBusNamespaces"] }
+        # "cosmosDbAccounts" { $paasMarkup = Get-CosmosDbMarkup $DictData["cosmosDbAccounts"] }
+        default { $paasMarkup }
+    }
+
+    $paasMarkup
+
+}
+
+function Get-VerticalOrientationMarkup {
+    param (
+        [Parameter(Mandatory=$true)] $MarkupIds,
+        [Parameter(Mandatory=$true)] $TabPrefix
+    )
+    $hiddenLinkMarkup = "`n"
+    for ($i=0; $i -lt $MarkupIds.Count; $i++) {
+        if ($i -gt 0) {
+            $hiddenLinkMarkup += $TabPrefix + "{0} -[hidden]d-> {1}`n" -f $MarkupIds[$i-1], $MarkupIds[$i]
+        }
+    }
+    $hiddenLinkMarkup
+}
 
 function Get-RouteTableMarkup {
     param (
@@ -73,7 +107,7 @@ function Get-ApimMarkup {
     $apimMarkup = $apimMarkup.Replace("[name]", "`"{0}`"" -f $Data.Name)
     $technologyText = "`"SKU: {0}\nInstances: {1}`"" -f $Data.Sku.Name, $Data.Sku.Capacity
     $apimMarkup = $apimMarkup.Replace("[technology]", $technologyText)
-    $descriptionText = "`"<B>{0}</B> ({1})`"" -f $Data.Properties.gatewayUrl, $Data.Properties.privateIdAddpresses[0]
+    $descriptionText = "`"<B>{0}</B> ({1})`"" -f $Data.Properties.gatewayUrl, $Data.Properties.privateIPAddresses[0]
     $apimMarkup = $apimMarkup.Replace("[description]", $descriptionText )
     $apimMarkup
 }
@@ -111,4 +145,147 @@ function Get-VmssMarkup {
     $descriptionMarkup = $imagePublisher + ": " + $imageVersion
     $vmssMarkup = $vmssMarkup.Replace("[description]", "`"{0}`"" -f $descriptionMarkup )
     $vmssMarkup
+}
+
+function Get-AppSvcVnetMarkup {
+    param ( [Parameter(Mandatory=$true)] $SubnetMarkupId )
+    $serviceTemplate = Get-Content './templates/functionVnetIntegration.puml' -Raw
+    $serviceMarkup = $serviceTemplate
+    $serviceMarkupId = $SubnetMarkupId + "vnetintegration"
+    $serviceMarkup = $serviceMarkup.Replace("[id]", $serviceMarkupId)
+    $serviceMarkup = $serviceMarkup.Replace("[name]", "`"{0}`"" -f "VNET Integration")
+    $serviceMarkup = $serviceMarkup.Replace("[technology]", "`"{0}`"" -f "null")
+    $serviceMarkup = $serviceMarkup.Replace("[description]", "Origin for outbound dependency calls" )
+    $serviceMarkup
+}
+
+function Get-PrivateEndpointsMarkup {
+    param ( [Parameter(Mandatory=$true)] $Data )
+    $serviceMarkup = Get-Content './templates/privateEndpoint.puml' -Raw
+    $serviceMarkup = $serviceMarkup.Replace("[id]", $Data.name.Replace("-", ""))
+    $serviceMarkup = $serviceMarkup.Replace("[name]", "`"{0}`"" -f $Data.Name)
+    $serviceMarkup = $serviceMarkup.Replace("[technology]", "`"{0}`"" -f "null")
+    $serviceMarkup = $serviceMarkup.Replace("[description]", "Private connection to PaaS service" )
+    $serviceMarkup
+}
+
+function Get-RedisVnetMarkup {
+    param ( [Parameter(Mandatory=$true)] $Data )
+    $serviceMarkup = Get-Content './templates/redis.puml' -Raw
+    $serviceMarkup = $serviceMarkup.Replace("[id]", $Data.name.Replace("-", ""))
+    $serviceMarkup = $serviceMarkup.Replace("[name]", "`"{0}`"" -f $Data.Name)
+    $technologyText = "SKU: " + $Data.Properties.sku.name + ", Capacity: " + $Data.Properties.sku.capacity
+    $serviceMarkup = $serviceMarkup.Replace("[technology]", "`"{0}`"" -f $technologyText)
+    $serviceMarkup = $serviceMarkup.Replace("[description]", "`"{0}`"" -f $Data.Properties.staticIP)
+    $serviceMarkup
+}
+
+
+function Get-AppServiceMarkup {
+    param ( [Parameter(Mandatory=$true,Position=0)] $AppServiceData,
+            [Parameter(Mandatory=$true,Position=1)] $ServicePlanData,
+            [Parameter(Mandatory=$true,Position=2)] $RegionName,
+            [Parameter(Mandatory=$true,Position=3)] $SubscriptionId 
+     )
+
+     $locationName = ""
+     switch ($RegionName) {
+        "centralus" { $locationName = "Central US" }
+     }
+
+     $servicePlanItemsMarkup = ""
+     $servicePlans = $ServicePlanData | Where-Object { $_.Location -eq $locationName -and $_.SubscriptionId -eq $SubscriptionId }
+     $servicePlanIds = @( $servicePlans  | ForEach-Object {$_.Id } )
+     $appServices = New-Object -TypeName 'System.Collections.ArrayList'
+     $AppServiceData | Where-Object { $_.Location -eq $locationName -and $_.SubscriptionId -eq $SubscriptionId } | ForEach-Object { $appServices.Add($_) }
+     
+     foreach ($servicePlan in $servicePlans ) {
+        $servicePlanMarkup = Get-Content './templates/appServicePlan.puml' -Raw
+        $servicePlanMarkup = $servicePlanMarkup.Replace("[id]", $servicePlan.name.Replace("-", ""))
+        $servicePlanMarkup = $servicePlanMarkup.Replace("[name]", "`"{0}`"" -f $servicePlan.Name)
+        $skuTier = $servicePlan.Sku.Tier
+        $skuName = $servicePlan.Sku.Name
+        $workerSize = $servicePlan.Properties.currentWorkerSize
+        $currentWorkers = $servicePlan.Properties.currentNumberOfWorkers
+        $maxWorkers = $servicePlan.Properties.maximumNumberOfWorkers
+        $elasticScaleEnabled = $servicePlan.Properties.elasticScaleEnabled
+        $technologyText = "SKU: $skuTier ($skuName), Worker Size: $workerSize)"
+        $servicePlanMarkup = $servicePlanMarkup.Replace("[technology]", "`"{0}`"" -f $technologyText)
+        $descriptionText = "Capacity: $currentWorkers / $maxWorkers\nElastic Scale: $elasticScaleEnabled"
+        $servicePlanMarkup = $servicePlanMarkup.Replace("[description]", "`"{0}`"" -f $descriptionText)
+
+        # add active Function Apps or App Service instances
+        
+        $appServiceMarkupIds = New-Object -TypeName 'System.Collections.ArrayList'
+        $appServiceMarkupItems = ""
+
+        foreach ($appService in $appServices) {
+            if ($appService.Properties.serverFarmId -in $servicePlanIds -and $appService.Properties.state -eq "Running") {
+
+                $appServiceMarkup = ""
+
+                if ($appService.kind -eq "functionapp") {
+                    $appServiceMarkup = Get-Content './templates/functionApp.puml' -Raw
+                } else {
+                    $appServiceMarkup = Get-Content './templates/appService.puml' -Raw
+                }
+
+                $appServiceMarkupId = $appService.name.Replace("-", "")
+                $appServiceMarkupIds.Add($appServiceMarkupId)
+                $appServiceMarkup = $appServiceMarkup.Replace("[id]", $appServiceMarkupId)
+                $appServiceMarkup = $appServiceMarkup.Replace("[name]", "`"{0}`"" -f $appService.Name)
+                $appServiceMarkup = $appServiceMarkup.Replace("[technology]", "`"SKU: {0}`"" -f $appService.Properties.sku)
+                $descriptionText = "Min instance count: " + $appService.Properties.siteConfig.minimumElasticInstanceCount
+                $appServiceMarkup = $appServiceMarkup.Replace("[description]", "`"{0}`"" -f $descriptionText )
+
+                # if using VNET Integration, append link to subnet
+                if ($appService.Properties.virtualNetworkSubnetId) {
+                    $subnetMarkupId = $appService.Properties.virtualNetworkSubnetId.Split("/")[10].Replace("-", "") + "vnetintegration"
+                    $appServiceLinkMarkup = "`t`t$subnetMarkupId <-- $appServiceMarkupId"
+                    $appServiceMarkup += "`n" + $appServiceLinkMarkup
+                }
+
+                # if configured with Private Endpoint, append link to PE
+
+
+                # if using Service Endpoint, append link to subnet(s)
+
+
+                $appServiceMarkupItems += "`n" + $appServiceMarkup
+            }
+        }
+
+        # append hidden link to force App Service PUML into vertical orientation
+        $verticalOrientationMarkup = Get-VerticalOrientationMarkup $appServiceMarkupIds "`t`t"
+        $appServiceMarkupItems += "`n" + $verticalOrientationMarkup
+
+        $servicePlanMarkup = $servicePlanMarkup.Replace("[appservices]", "{0}" -f $appServiceMarkupItems)
+        $servicePlanItemsMarkup += "`n" + $servicePlanMarkup
+     }
+
+     $servicePlanItemsMarkup
+}
+
+function Get-EventHubMarkup {
+    param ( [Parameter(Mandatory=$true,Position=0)] $NamespaceData,
+            [Parameter(Mandatory=$true,Position=1)] $ClusterData 
+     )
+}
+
+function Get-ServiceBusMarkup  {
+    param ( [Parameter(Mandatory=$true,Position=0)] $Data )
+    $serviceMarkup = Get-Content './templates/serviceBus.puml' -Raw
+
+}
+
+function Get-CosmosDbMarkup  {
+    param ( [Parameter(Mandatory=$true,Position=0)] $Data )
+    $serviceMarkup = Get-Content './templates/cosmos.puml' -Raw
+    $serviceMarkup = $serviceMarkup.Replace("[id]", $Data.name.Replace("-", ""))
+    $serviceMarkup = $serviceMarkup.Replace("[name]", "`"{0}`"" -f $Data.Name)
+    $technologyText = "SKU: " + $Data.Properties.sku.name + ", Capacity: " + $Data.Properties.sku.capacity
+    $serviceMarkup = $serviceMarkup.Replace("[technology]", "`"{0}`"" -f $technologyText)
+    $serviceMarkup = $serviceMarkup.Replace("[description]", "`"{0}`"" -f $Data.Properties.staticIP  )
+    $serviceMarkup
+
 }

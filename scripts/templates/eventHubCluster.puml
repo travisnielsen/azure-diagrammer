@@ -1,0 +1,3 @@
+    AzureEventHubCluster([id], [name], [technology], [description], PINK) {
+        [eventhubs]
+    }

@@ -1,13 +1,21 @@
 @startuml [TITLE]
 
 ' skinparam linetype polyline
-skinparam linetype ortho
+' skinparam linetype ortho
 
 !define AzurePuml https://raw.githubusercontent.com/travisnielsen/Azure-PlantUML/themesupport/dist
 !includeurl AzurePuml/themes/dracula.puml
 
 !includeurl AzurePuml/Analytics/AzureDatabricks.puml
+!includeurl AzurePuml/Analytics/AzureEventHub.puml
+!includeurl AzurePuml/Analytics/AzureEventHubCluster.puml
+!includeurl AzurePuml/Compute/AzureAppService.puml
+!includeurl AzurePuml/Compute/AzureAppServicePlan.puml
+!includeurl AzurePuml/Compute/AzureFunction.puml
 !includeurl AzurePuml/Compute/AzureVirtualMachineScaleSet.puml
+!includeurl AzurePuml/Databases/AzureRedisCache.puml
+!includeurl AzurePuml/Databases/AzureCosmosDb.puml
+!includeurl AzurePuml/Integration/AzureServiceBus.puml
 !includeurl AzurePuml/Management/AzureSubscription.puml
 !includeurl AzurePuml/Networking/AzureFirewall.puml
 !includeurl AzurePuml/Networking/AzureVirtualNetwork.puml
@@ -19,6 +27,7 @@ skinparam linetype ortho
 !includeurl AzurePuml/Networking/AzureNAT.puml
 !includeurl AzurePuml/Networking/AzureNSG.puml
 !includeurl AzurePuml/Networking/AzureVPNGateway.puml
+!includeurl AzurePuml/Networking/AzurePrivateLink.puml
 !includeurl AzurePuml/Web/AzureAPIManagement.puml
 
 ' LAYOUT_LEFT_RIGHT
@@ -53,12 +62,14 @@ skinparam rectangle<<e_stereo>> {
     BorderColor<<AzureFunction>> PURPLE
     BorderColor<<AzureDataLakeStorage>> CYAN
     BorderColor<<AzureSqlDataWarehouse>> CYAN
+    BorderColor<<AzureCosmosDb>> CYAN 
     BorderColor<<AzureDataFactory>> CYAN
     BorderColor<<AzureFirewall>> RED
     BorderColor<<AzureNSG>> RED
-    BorderColor<<AzureAPIManagement>> CYAN
+    BorderColor<<AzureAPIManagement>> PURPLE
     BorderColor<<AzureDatabricks>> PINK
-    BorderColor<<AzureVirtualMachineScaleSet>> CYAN
+    BorderColor<<AzureVirtualMachineScaleSet>> PURPLE
+    BorderColor<<AzureRedisCache>> PURPLE
 }
 
 skinparam BackgroundColor #000

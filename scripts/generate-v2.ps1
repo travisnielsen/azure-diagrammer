@@ -14,6 +14,8 @@ foreach ($file in $sourceFiles) {
 
 $regionName = $contextInfo.region
 
+$paasServices = $contextInfo.paas
+
 $expressRouteColors = @('red','orange','purple','aqua')
 
 $diagram = Get-Content './templates/diagram.puml' -Raw
@@ -168,6 +170,26 @@ foreach ($subscription in $subscriptions) {
                 }
             }
 
+            $appServiceSites = $dictData["sites"] | Where-Object { $_.Properties.virtualNetworkSubnetId -eq $subnet.id }
+            if ($appServiceSites) {
+                $appServiceMarkup = Get-AppSvcVnetMarkup $subnetMarkupId
+                $subnetServicesMarkup += $appServiceMarkup + "`n"
+            }
+
+            $privateEndpoints = $dictData["privateEndpoints"] | Where-Object { $_.Properties.subnet.id -eq $subnet.id }
+            if ($privateEndpoints) {                
+                $privateEndpointMarkup = Get-PrivateEndpointsMarkup $privateEndpoints[0]
+                $subnetServicesMarkup += $privateEndpointMarkup + "`n"
+            }
+
+            $redisInstances = $dictData["redis"] | Where-Object { $_.Properties.subnetId -eq $subnet.id }
+            if ($redisInstances) {    
+                foreach ($redisInstance in $redisInstances) {
+                    $redisMarkup = Get-RedisVnetMarkup $redisInstance
+                    $subnetServicesMarkup += $redisMarkup + "`n"
+                }
+            }
+
             # append markup to subnet
             if ($subnetServicesMarkup) {
                 $subnetMarkup += " {`n"
@@ -178,17 +200,10 @@ foreach ($subscription in $subscriptions) {
             $subnetMarkupContainer += "`n"
             $subnetMarkupContainer += $subnetMarkup
             $subnetMarkupIds.Add($subnetMarkupId)
-        }
+        } # end subnet
 
         # append markup for vertical alignment of subnets
-        $hiddenLinkMarkup = "`n"
-
-        for ($i=0; $i -lt $subnetMarkupIds.Count; $i++) {
-            if ($i -gt 0) {
-                $hiddenLinkMarkup += "`t`t`t{0} -[hidden]d-> {1}`n" -f $subnetMarkupIds[$i-1], $subnetMarkupIds[$i]
-            }
-        }
-        
+        $hiddenLinkMarkup = Get-VerticalOrientationMarkup $subnetMarkupIds "`t`t`t"
         $subnetMarkupContainer += $hiddenLinkMarkup
 
         # insert vnet data
@@ -212,7 +227,14 @@ foreach ($subscription in $subscriptions) {
 
 
     #
-    # Azure Services (non-vnet integrated)
+    # Azure Services (non-vnet injected)
+    #
+    foreach ($paas in $paasServices) {
+        $serviceMarkup = Get-PaasMarkup $paas $dictData $regionName $subscription.Id
+        $subscriptionServicesMarkupContainer += $serviceMarkup + "`n" 
+    }
+    #
+    # end Azure services (non-vnet injected)
     #
 
     $subscriptionMarkupIdList.Add($subscriptionMarkupId)
@@ -250,7 +272,7 @@ foreach($vnet in $dictData['vnets']) {
 
         foreach($peering in $vnet.Properties.virtualNetworkPeerings) {
 
-            $remoteVnetId = $peering.properties.remoteVirtualNetwork.id.Split("/")[8]
+            $remoteVnetId = $peering.properties.remoteVirtualNetwork.id.Split("/")[10]
 
             if ($remoteVnetId -in $vnetIds ) {
                 # check to see if there is already a peering. No need to complicate the diagram with bi-directional peering

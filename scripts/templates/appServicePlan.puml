@@ -1,0 +1,3 @@
+    AzureAppServicePlan([id], [name], [technology], [description], PURPLE) {
+        [appservices]
+    }
