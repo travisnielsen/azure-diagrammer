@@ -2,22 +2,62 @@ function Get-PaasMarkup {
     param (
         [Parameter(Mandatory=$true)] $PaasName,
         [Parameter(Mandatory=$true)] $DictData,
-        [Parameter(Mandatory=$true)] $RegionName,
+        [Parameter(Mandatory=$true)] $LocationId,
         [Parameter(Mandatory=$true)] $SubscriptionId
     )
 
     $paasMarkup = ""
 
+    $regionName = Get-RegionName $LocationId
+
+    # create list of subnet markup Ids to draw connectivity via Service Endpoints
+    $vnetData = $DictData["vnets"] | Where-Object { $_.Location -eq $LocationId -and $_.SubscriptionId -eq $SubscriptionId }
+    $subnetMarkupIds = Get-SubnetMarkupIds $vnetData
+
     switch ($PaasName) {
-        "sites" { $paasMarkup = Get-AppServiceMarkup $DictData["sites"] $DictData["serverfarms"] $RegionName $SubscriptionId }
+        "sites" {
+            $appServicePlans = $DictData["serverfarms"] | Where-Object { $_.Location -eq $regionName -and $_.SubscriptionId -eq $SubscriptionId }
+            $appServices = $DictData["sites"] | Where-Object { $_.Location -eq $regionName -and $_.SubscriptionId -eq $SubscriptionId }
+            $paasMarkup = Get-AppServiceMarkup $appServices $appServicePlans
+        }
         # "eventHubNamespaces" { $paasMarkup = Get-EventHubMarkup $DictData["eventHubNamespaces"] $DictData["eventHubClusters"] }
         # "serviceBusNamespaces" { $paasMarkup = Get-ServiceBusMarkup $DictData["serviceBusNamespaces"] }
-        # "cosmosDbAccounts" { $paasMarkup = Get-CosmosDbMarkup $DictData["cosmosDbAccounts"] }
+        "cosmosDbAccounts" { 
+            $cosmosData = $DictData["cosmosDbAccounts"] | Where-Object { $_.Location -eq $regionName -and $_.SubscriptionId -eq $SubscriptionId }
+            $paasMarkup = Get-CosmosDbMarkup $cosmosData $subnetMarkupIds
+        }
         default { $paasMarkup }
     }
 
     $paasMarkup
 
+}
+
+function Get-RegionName {
+    param ( [Parameter(Mandatory=$true,Position=0)] $LocationId )
+
+    switch ($LocationId) {
+        "centralus" { "Central US" }
+        "eastus" { "East US" }
+        "eastus2" { 'East US 2' }
+    }
+}
+
+function Get-SubnetMarkupIds {
+    param ( [Parameter(Mandatory=$true,Position=0)] $VnetData )
+
+    $subnetIds = New-Object -TypeName 'System.Collections.ArrayList'
+
+    foreach ($vnet in $VnetData) {
+        $subnets = $vnet.Properties.subnets
+
+        foreach ($subnet in $subnets) {
+            $subnetMarkupId = $subnet.name.Replace("-", "")
+            $subnetIds.Add($subnetMarkupId)
+        }
+    }
+
+    $subnetIds
 }
 
 function Get-VerticalOrientationMarkup {
@@ -183,23 +223,15 @@ function Get-RedisVnetMarkup {
 
 function Get-AppServiceMarkup {
     param ( [Parameter(Mandatory=$true,Position=0)] $AppServiceData,
-            [Parameter(Mandatory=$true,Position=1)] $ServicePlanData,
-            [Parameter(Mandatory=$true,Position=2)] $RegionName,
-            [Parameter(Mandatory=$true,Position=3)] $SubscriptionId 
+            [Parameter(Mandatory=$true,Position=1)] $ServicePlanData
      )
 
-     $locationName = ""
-     switch ($RegionName) {
-        "centralus" { $locationName = "Central US" }
-     }
-
      $servicePlanItemsMarkup = ""
-     $servicePlans = $ServicePlanData | Where-Object { $_.Location -eq $locationName -and $_.SubscriptionId -eq $SubscriptionId }
-     $servicePlanIds = @( $servicePlans  | ForEach-Object {$_.Id } )
-     $appServices = New-Object -TypeName 'System.Collections.ArrayList'
-     $AppServiceData | Where-Object { $_.Location -eq $locationName -and $_.SubscriptionId -eq $SubscriptionId } | ForEach-Object { $appServices.Add($_) }
+     $servicePlanIds = @( $ServicePlanData  | ForEach-Object {$_.Id } )
+     # $appServices = New-Object -TypeName 'System.Collections.ArrayList'
+     # $AppServiceData | Where-Object { $_.Location -eq $locationName -and $_.SubscriptionId -eq $SubscriptionId } | ForEach-Object { $appServices.Add($_) }
      
-     foreach ($servicePlan in $servicePlans ) {
+     foreach ($servicePlan in $ServicePlanData ) {
         $servicePlanMarkup = Get-Content './templates/appServicePlan.puml' -Raw
         $servicePlanMarkup = $servicePlanMarkup.Replace("[id]", $servicePlan.name.Replace("-", ""))
         $servicePlanMarkup = $servicePlanMarkup.Replace("[name]", "`"{0}`"" -f $servicePlan.Name)
@@ -219,7 +251,7 @@ function Get-AppServiceMarkup {
         $appServiceMarkupIds = New-Object -TypeName 'System.Collections.ArrayList'
         $appServiceMarkupItems = ""
 
-        foreach ($appService in $appServices) {
+        foreach ($appService in $AppServiceData) {
             if ($appService.Properties.serverFarmId -in $servicePlanIds -and $appService.Properties.state -eq "Running") {
 
                 $appServiceMarkup = ""
@@ -279,13 +311,37 @@ function Get-ServiceBusMarkup  {
 }
 
 function Get-CosmosDbMarkup  {
-    param ( [Parameter(Mandatory=$true,Position=0)] $Data )
-    $serviceMarkup = Get-Content './templates/cosmos.puml' -Raw
-    $serviceMarkup = $serviceMarkup.Replace("[id]", $Data.name.Replace("-", ""))
-    $serviceMarkup = $serviceMarkup.Replace("[name]", "`"{0}`"" -f $Data.Name)
-    $technologyText = "SKU: " + $Data.Properties.sku.name + ", Capacity: " + $Data.Properties.sku.capacity
-    $serviceMarkup = $serviceMarkup.Replace("[technology]", "`"{0}`"" -f $technologyText)
-    $serviceMarkup = $serviceMarkup.Replace("[description]", "`"{0}`"" -f $Data.Properties.staticIP  )
-    $serviceMarkup
+    param ( 
+        [Parameter(Mandatory=$true,Position=0)] $Data,
+        [Parameter(Mandatory=$true,Position=1)] $SubnetMarkupIds
+    )
 
+    $serviceItemsMarkup = ""
+
+    foreach ($cosmosInstance in $Data) {
+
+        $serviceMarkup = Get-Content './templates/cosmos.puml' -Raw
+        $serviceMarkupId = $cosmosInstance.name.Replace("-", "")
+        $serviceMarkup = $serviceMarkup.Replace("[id]", $serviceMarkupId)
+        $serviceMarkup = $serviceMarkup.Replace("[name]", "`"{0}`"" -f $cosmosInstance.Name)
+        $technologyText = "SKU: " + $cosmosInstance.Properties.databaseAccountOfferType + ", Default consistency level: " + $cosmosInstance.Properties.consistencyPolicy.defaultConsistencyLevel
+        $serviceMarkup = $serviceMarkup.Replace("[technology]", "`"{0}`"" -f $technologyText)
+        # TODO: Make this dynamic to support accounts with multi-region
+        $descriptionText = "Read locations: " + $cosmosInstance.Properties.readLocations[0].locationName + "\nWrite locations: " + $cosmosInstance.Properties.readLocations[0].locationName 
+        $serviceMarkup = $serviceMarkup.Replace("[description]", "`"{0}`"" -f $descriptionText)
+
+        # add subnet connections for the instance
+        $networkRuleLinkMarkup = ""
+        foreach ($subnet in $cosmosInstance.Properties.virtualNetworkRules) {
+            $subnetMarkupId = $subnet.id.Split("/")[10].Replace("-","")
+            if ($subnetMarkupId -in $SubnetMarkupIds) {
+                $networkRuleLinkMarkup += "`t" + $serviceMarkupId + " <-- " + $subnetMarkupId + "`n"
+            }
+        }
+
+        $serviceMarkup += "`n${networkRuleLinkMarkup}`n"
+        $serviceItemsMarkup += $serviceMarkup
+    }
+
+    $serviceItemsMarkup
 }
