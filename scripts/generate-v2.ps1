@@ -190,7 +190,7 @@ foreach ($subscription in $subscriptions) {
             if ($subnetServicesMarkup) {
                 $subnetMarkup += " {`n"
                 $subnetMarkup += $subnetServicesMarkup
-                $subnetMarkup += "`t`t`t}`n"
+                $subnetMarkup += "`t`t}`n"
             }
 
             $subnetMarkupContainer += "`n"
