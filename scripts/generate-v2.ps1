@@ -20,7 +20,7 @@ $expressRouteColors = @('red','orange','purple','aqua')
 
 $diagram = Get-Content './templates/diagram.puml' -Raw
 $regionTemplate = Get-Content './templates/region.puml' -Raw
-$subscriptionTemplate = Get-Content './templates/subscription.puml'
+# $subscriptionTemplate = Get-Content './templates/subscription.puml'
 $vnetTemplate = Get-Content './templates/vnet.puml' -Raw
 $subnetTemplate = Get-Content './templates/subnet.puml' -Raw
 $expressRouteTemplate = Get-Content './templates/expressRoute.puml' -Raw
@@ -38,20 +38,16 @@ $subscriptionMarkupIdList = New-Object -TypeName 'System.Collections.ArrayList'
 # subscriptions
 
 foreach ($subscription in $subscriptions) {
+
+    $serviceCount = 0
     $subscriptionServicesMarkupContainer = ''
-    $subscriptionMarkup = $subscriptionTemplate
-    $subscriptionMarkupId = $regionName + $subscription.Name.Replace("-", "")
-    $subscriptionMarkup = $subscriptionMarkup.Replace("[id]", $subscriptionMarkupId)
-    $subscriptionMarkup = $subscriptionMarkup.Replace("[name]", "`"{0}`"" -f $subscription.Name)
-    $subscriptionMarkup = $subscriptionMarkup.Replace("[technology]", "`"{0}`"" -f $subscription.Id)
-    $subscriptionMarkup = $subscriptionMarkup.Replace("[description]", "`"{0}`"" -f "TBD")
-
-
+    $subscriptionMarkup = Get-SubscriptionMarkup $subscription $regionName
+    $subscriptionMarkupId = $RegionName + $Subscription.Name.Replace("-", "")
     $vnetMarkupList = New-Object -TypeName 'System.Collections.ArrayList'
-
     $vnets = $dictData['vnets'] | Where-Object { $_.Location -eq $regionName -and $_.SubscriptionId -eq $subscription.Id }
 
     foreach ($vnet in $vnets) {
+        $serviceCount += 1
         $isHub = $false
         $subnetMarkupIds = New-Object -TypeName 'System.Collections.ArrayList'
         $vnetMarkup = $vnetTemplate
@@ -225,13 +221,19 @@ foreach ($subscription in $subscriptions) {
         $subscriptionServicesMarkupContainer += $markup + "`n"     
     }
 
-
     #
     # Azure Services (non-vnet injected)
     #
     foreach ($paas in $paasServices) {
-        $serviceMarkup = Get-PaasMarkup $paas $dictData $regionName $subscription.Id
-        $subscriptionServicesMarkupContainer += $serviceMarkup + "`n" 
+        $paasMarkup = Get-PaasMarkup $paas $dictData $regionName $subscription.Id
+        if ($paasMarkup) { 
+            # for some reason, text can be returned in an object array with empty leading elements
+            if (($paasMarkup.GetType() -eq [object[]]) -and $paasMarkup.Count -ne 1) {
+                $subscriptionServicesMarkupContainer += $paasMarkup[$paasMarkup.Count - 1] + "`n"
+            } else {
+                $subscriptionServicesMarkupContainer += $paasMarkup + "`n"
+            }
+        }
     }
     #
     # end Azure services (non-vnet injected)
@@ -239,7 +241,10 @@ foreach ($subscription in $subscriptions) {
 
     $subscriptionMarkupIdList.Add($subscriptionMarkupId)
     $subscriptionMarkup = $subscriptionMarkup.Replace("[services]", $subscriptionServicesMarkupContainer)
-    $subscriptionsMarkupContainer += "`n" + $subscriptionMarkup
+
+    if ($serviceCount -gt 0 ) {
+        $subscriptionsMarkupContainer += "`n" + $subscriptionMarkup
+    }
 
 } # end subscriptions
 
@@ -298,12 +303,7 @@ $expressRouteSubscriptions = $subscriptions | Where-Object { $_.Id -in $expressR
 foreach ($subscrption in $expressRouteSubscriptions) {
 
     # add the subscription container markup
-    $subscriptionMarkup = "`n" + $subscriptionTemplate
-    $subscriptionMarkupId = $subscription.Name.Replace("-", "")
-    $subscriptionMarkup = $subscriptionMarkup.Replace("[id]", $subscriptionMarkupId)
-    $subscriptionMarkup = $subscriptionMarkup.Replace("[name]", "`"{0}`"" -f $subscription.Name)
-    $subscriptionMarkup = $subscriptionMarkup.Replace("[technology]", "`"{0}`"" -f $subscription.Id)
-    $subscriptionMarkup = $subscriptionMarkup.Replace("[description]", "`"{0}`"" -f "TBD")
+    $subscriptionMarkup = "`n" + (Get-SubscriptionMarkup $subscription $regionName)
 
     # add expressroute circuits
     $circuitsMarkup = ''

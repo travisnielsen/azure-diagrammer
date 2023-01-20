@@ -1,65 +1,3 @@
-function Get-PaasMarkup {
-    param (
-        [Parameter(Mandatory=$true)] $PaasName,
-        [Parameter(Mandatory=$true)] $DictData,
-        [Parameter(Mandatory=$true)] $LocationId,
-        [Parameter(Mandatory=$true)] $SubscriptionId
-    )
-
-    $paasMarkup = ""
-
-    $regionName = Get-RegionName $LocationId
-
-    # create list of subnet markup Ids to draw connectivity via Service Endpoints
-    $vnetData = $DictData["vnets"] | Where-Object { $_.Location -eq $LocationId -and $_.SubscriptionId -eq $SubscriptionId }
-    $subnetMarkupIds = Get-SubnetMarkupIds $vnetData
-
-    switch ($PaasName) {
-        "sites" {
-            $appServicePlans = $DictData["serverfarms"] | Where-Object { $_.Location -eq $regionName -and $_.SubscriptionId -eq $SubscriptionId }
-            $appServices = $DictData["sites"] | Where-Object { $_.Location -eq $regionName -and $_.SubscriptionId -eq $SubscriptionId }
-            $paasMarkup = Get-AppServiceMarkup $appServices $appServicePlans
-        }
-        # "eventHubNamespaces" { $paasMarkup = Get-EventHubMarkup $DictData["eventHubNamespaces"] $DictData["eventHubClusters"] }
-        # "serviceBusNamespaces" { $paasMarkup = Get-ServiceBusMarkup $DictData["serviceBusNamespaces"] }
-        "cosmosDbAccounts" { 
-            $cosmosData = $DictData["cosmosDbAccounts"] | Where-Object { $_.Location -eq $regionName -and $_.SubscriptionId -eq $SubscriptionId }
-            $paasMarkup = Get-CosmosDbMarkup $cosmosData $subnetMarkupIds
-        }
-        default { $paasMarkup }
-    }
-
-    $paasMarkup
-
-}
-
-function Get-RegionName {
-    param ( [Parameter(Mandatory=$true,Position=0)] $LocationId )
-
-    switch ($LocationId) {
-        "centralus" { "Central US" }
-        "eastus" { "East US" }
-        "eastus2" { 'East US 2' }
-    }
-}
-
-function Get-SubnetMarkupIds {
-    param ( [Parameter(Mandatory=$true,Position=0)] $VnetData )
-
-    $subnetIds = New-Object -TypeName 'System.Collections.ArrayList'
-
-    foreach ($vnet in $VnetData) {
-        $subnets = $vnet.Properties.subnets
-
-        foreach ($subnet in $subnets) {
-            $subnetMarkupId = $subnet.name.Replace("-", "")
-            $subnetIds.Add($subnetMarkupId)
-        }
-    }
-
-    $subnetIds
-}
-
 function Get-VerticalOrientationMarkup {
     param (
         [Parameter(Mandatory=$true)] $MarkupIds,
@@ -71,7 +9,22 @@ function Get-VerticalOrientationMarkup {
             $hiddenLinkMarkup += $TabPrefix + "{0} -[hidden]d-> {1}`n" -f $MarkupIds[$i-1], $MarkupIds[$i]
         }
     }
-    $hiddenLinkMarkup
+    return $hiddenLinkMarkup
+}
+
+function Get-SubscriptionMarkup {
+    param (
+        [Parameter(Mandatory=$true)] $Subscription,
+        [Parameter(Mandatory=$true)] $RegionName
+    )
+
+    $subscriptionMarkup = Get-Content './templates/subscription.puml'
+    $subscriptionMarkupId = $RegionName + $Subscription.Name.Replace("-", "")
+    $subscriptionMarkup = $subscriptionMarkup.Replace("[id]", $subscriptionMarkupId)
+    $subscriptionMarkup = $subscriptionMarkup.Replace("[name]", "`"{0}`"" -f $Subscription.Name)
+    $subscriptionMarkup = $subscriptionMarkup.Replace("[technology]", "`"NULL`"")
+    $subscriptionMarkup = $subscriptionMarkup.Replace("[description]", "`"NULL`"")
+    return $subscriptionMarkup
 }
 
 function Get-RouteTableMarkup {
@@ -228,8 +181,6 @@ function Get-AppServiceMarkup {
 
      $servicePlanItemsMarkup = ""
      $servicePlanIds = @( $ServicePlanData  | ForEach-Object {$_.Id } )
-     # $appServices = New-Object -TypeName 'System.Collections.ArrayList'
-     # $AppServiceData | Where-Object { $_.Location -eq $locationName -and $_.SubscriptionId -eq $SubscriptionId } | ForEach-Object { $appServices.Add($_) }
      
      foreach ($servicePlan in $ServicePlanData ) {
         $servicePlanMarkup = Get-Content './templates/appServicePlan.puml' -Raw
@@ -292,10 +243,10 @@ function Get-AppServiceMarkup {
         $appServiceMarkupItems += "`n" + $verticalOrientationMarkup
 
         $servicePlanMarkup = $servicePlanMarkup.Replace("[appservices]", "{0}" -f $appServiceMarkupItems)
-        $servicePlanItemsMarkup += "`n" + $servicePlanMarkup
+        $servicePlanItemsMarkup += $servicePlanMarkup
      }
 
-     $servicePlanItemsMarkup
+     return ,$servicePlanItemsMarkup
 }
 
 function Get-EventHubMarkup {
