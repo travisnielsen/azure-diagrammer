@@ -13,27 +13,21 @@ foreach ($file in $sourceFiles) {
 }
 
 $regionName = $contextInfo.region
-
 $paasServices = $contextInfo.paas
-
 $expressRouteColors = @('red','orange','purple','aqua')
 
 $diagram = Get-Content './templates/diagram.puml' -Raw
-$regionTemplate = Get-Content './templates/region.puml' -Raw
-# $subscriptionTemplate = Get-Content './templates/subscription.puml'
+$regionMarkup = Get-Content './templates/region.puml' -Raw
 $vnetTemplate = Get-Content './templates/vnet.puml' -Raw
 $subnetTemplate = Get-Content './templates/subnet.puml' -Raw
 $expressRouteTemplate = Get-Content './templates/expressRoute.puml' -Raw
 
 $gatewayConnections = New-Object -TypeName 'System.Collections.ArrayList'
+$subscriptionMarkupIdList = New-Object -TypeName 'System.Collections.ArrayList'
 $diagramContent = ""
 $subscriptions = @($dictData['subscriptions'])
 $dictGatewayMarkupNames = @{}
-
-$regionMarkup = $regionTemplate
-
 $subscriptionsMarkupContainer = ''
-$subscriptionMarkupIdList = New-Object -TypeName 'System.Collections.ArrayList'
 
 # subscriptions
 
