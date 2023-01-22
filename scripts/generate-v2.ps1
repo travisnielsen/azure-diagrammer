@@ -43,6 +43,7 @@ foreach ($subscription in $subscriptions) {
     $subscriptionServicesMarkupContainer = ''
     $subscriptionMarkup = Get-SubscriptionMarkup $subscription $regionName
     $subscriptionMarkupId = $RegionName + $Subscription.Name.Replace("-", "")
+    $vnetMarkupIdList = New-Object -TypeName 'System.Collections.ArrayList'
     $vnetMarkupList = New-Object -TypeName 'System.Collections.ArrayList'
     $vnets = $dictData['vnets'] | Where-Object { $_.Location -eq $regionName -and $_.SubscriptionId -eq $subscription.Id }
 
@@ -73,7 +74,10 @@ foreach ($subscription in $subscriptions) {
             $vnetMarkup = $vnetMarkup.Replace("[style]", "")
         }
 
-        $vnetMarkup = $vnetMarkup.Replace("[id]", $vnet.Name.Replace("-", ""))
+        $vnetMarkupId = $vnet.Name.Replace("-", "")
+        $vnetMarkupIdList.Add($vnetMarkupId)
+
+        $vnetMarkup = $vnetMarkup.Replace("[id]", $vnetMarkupId)
         $vnetMarkup = $vnetMarkup.Replace("[name]", "`"{0}`"" -f $vnet.Name)
         $vnetMarkup = $vnetMarkup.Replace("[technology]", "`"{0}`"" -f $vnet.Properties.addressSpace.addressPrefixes)
         $vnetMarkup = $vnetMarkup.Replace("[description]", "`"DNS: {0}`"" -f $descriptionText)
@@ -224,17 +228,30 @@ foreach ($subscription in $subscriptions) {
     #
     # Azure Services (non-vnet injected)
     #
+    
+    $paasServicesCount = 0
+    $paasMarkupItems = ""
+
     foreach ($paas in $paasServices) {
         $paasMarkup = Get-PaasMarkup $paas $dictData $regionName $subscription.Id
-        if ($paasMarkup) { 
+        if ($paasMarkup) {
+            $paasServicesCount += 1
             # for some reason, text can be returned in an object array with empty leading elements
             if (($paasMarkup.GetType() -eq [object[]]) -and $paasMarkup.Count -ne 1) {
-                $subscriptionServicesMarkupContainer += $paasMarkup[$paasMarkup.Count - 1] + "`n"
+                $paasMarkupItems += $paasMarkup[$paasMarkup.Count - 1] + "`n"
             } else {
-                $subscriptionServicesMarkupContainer += $paasMarkup + "`n"
+                $paasMarkupItems += $paasMarkup + "`n"
             }
         }
     }
+
+    if ($paasServicesCount -gt 0) {
+        # TODO: Organizing PaaS services into a PUML rectangle significantly complicates connection lines. Disable for now.
+        # $paasContainerMarkup = Get-PaasContainerMarkup $paasMarkupItems $subscriptionMarkupId  $vnetMarkupIdList
+        # $subscriptionServicesMarkupContainer += $paasContainerMarkup
+        $subscriptionServicesMarkupContainer += $paasMarkupItems
+    }
+
     #
     # end Azure services (non-vnet injected)
     #

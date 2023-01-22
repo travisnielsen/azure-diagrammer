@@ -27,6 +27,27 @@ function Get-SubscriptionMarkup {
     return $subscriptionMarkup
 }
 
+function Get-PaasContainerMarkup {
+    param (
+        [Parameter(Mandatory=$true)] $PaasMarkup,
+        [Parameter(Mandatory=$true)] $SubscriptionMarkupId,
+        [Parameter(Mandatory=$true)] $VnetMarkupIds
+    )
+
+    $paasContainerMarkup = Get-Content './templates/paasContainer.puml' -Raw
+    $paasContainerMarkupId = $SubscriptionMarkupId + "PaasContainer"
+    $paasContainerMarkup = $paasContainerMarkup.Replace("[paasContainerId]", $paasContainerMarkupId)
+    
+    # ensure PaaS container is above VNETs in the subscription
+    foreach($vnetMarkupId in $VnetMarkupIds) {
+        $PaasMarkup += "`n`t$paasContainerMarkupId -[hidden]d-> $vnetMarkupId"
+    }
+
+    $paasContainerMarkup = $paasContainerMarkup.Replace("[paasItems]", $PaasMarkup) + "`n"
+    return $paasContainerMarkup
+
+}
+
 function Get-RouteTableMarkup {
     param (
         [Parameter(Mandatory=$true)] $Data,
@@ -39,7 +60,7 @@ function Get-RouteTableMarkup {
     $routeTableMarkup = $routeTableMarkup.Replace("[technology]", "`"{0}`"" -f "null")
     $serviceLink = $LinkPrefix + $Data.Id + "/routes"
     $routeTableMarkup = $routeTableMarkup.Replace("[description]", "[[${serviceLink} Link]]")
-    $routeTableMarkup
+    return $routeTableMarkup
 }
 
 function Get-NsgMarkup {
@@ -54,7 +75,7 @@ function Get-NsgMarkup {
     $nsgMarkup = $nsgMarkup.Replace("[technology]", "`"{0}`"" -f "null")
     $serviceLink = $LinkPrefix + $Data.Id + "/overview"
     $nsgMarkup = $nsgMarkup.Replace("[description]", "[[${serviceLink} Link]]")
-    $nsgMarkup
+    return $nsgMarkup
 }
 
 function Get-VnetGatewayMarkup {
@@ -67,7 +88,7 @@ function Get-VnetGatewayMarkup {
     $technologyText = "SKU: {0}, Capacity: {1}" -f $Data.Properties.sku.name, $Data.Properties.sku.capacity
     $gatewayMarkup = $gatewayMarkup.Replace("[technology]", "`"{0}`"" -f $technologyText)
     $gatewayMarkup = $gatewayMarkup.Replace("[description]", "`"{0}`"" -f $Data.Properties.gatewayType)
-    $gatewayMarkup
+    return $gatewayMarkup
 }
 
 function Get-FirewallMarkup {
@@ -78,7 +99,7 @@ function Get-FirewallMarkup {
     $firewallMarkup = $firewallMarkup.Replace("[name]", "`"{0}`"" -f $Data.name)
     $firewallMarkup = $firewallMarkup.Replace("[technology]", "`"SKU: {0}`"" -f $Data.Properties.sku.tier)
     $firewallMarkup = $firewallMarkup.Replace("[description]", "`"<B>{0}</B>`"" -f $Data.Properties.ipConfigurations[0].properties.privateIPAddress )
-    $firewallMarkup
+    return $firewallMarkup
 }
 
 function Get-LoadBalancerMarkup {
@@ -89,7 +110,7 @@ function Get-LoadBalancerMarkup {
     $loadBalancerMarkup = $loadBalancerMarkup.Replace("[name]", "`"{0}`"" -f $Data.Name)
     $loadBalancerMarkup = $loadBalancerMarkup.Replace("[technology]", "`"SKU: {0}`"" -f $Data.Sku.Name)
     $loadBalancerMarkup = $loadBalancerMarkup.Replace("[description]", "`"<B>{0}</B>`"" -f "TBD" )
-    $loadBalancerMarkup
+    return $loadBalancerMarkup
 }
 
 function Get-ApimMarkup {
@@ -102,7 +123,7 @@ function Get-ApimMarkup {
     $apimMarkup = $apimMarkup.Replace("[technology]", $technologyText)
     $descriptionText = "`"<B>{0}</B> ({1})`"" -f $Data.Properties.gatewayUrl, $Data.Properties.privateIPAddresses[0]
     $apimMarkup = $apimMarkup.Replace("[description]", $descriptionText )
-    $apimMarkup
+    return $apimMarkup
 }
 
 function Get-DataBricksMarkup {
@@ -123,7 +144,7 @@ function Get-DataBricksMarkup {
     # $adbMarkup = $adbMarkup.Replace("[name]", "`"{0}`"" -f $Data.Name)
     $adbMarkup = $adbMarkup.Replace("[technology]", "`"SKU: {0}`"" -f $Data.Sku.Name)
     $adbMarkup = $adbMarkup.Replace("[description]", "null" )
-    $adbMarkup
+    return $adbMarkup
 }
 
 function Get-VmssMarkup {
@@ -137,7 +158,7 @@ function Get-VmssMarkup {
     $imageVersion = $Data.Properties.virtualMachineProfile.storageProfile.imageReference.version
     $descriptionMarkup = $imagePublisher + ": " + $imageVersion
     $vmssMarkup = $vmssMarkup.Replace("[description]", "`"{0}`"" -f $descriptionMarkup )
-    $vmssMarkup
+    return $vmssMarkup
 }
 
 function Get-AppSvcVnetMarkup {
@@ -149,7 +170,7 @@ function Get-AppSvcVnetMarkup {
     $serviceMarkup = $serviceMarkup.Replace("[name]", "`"{0}`"" -f "VNET Integration")
     $serviceMarkup = $serviceMarkup.Replace("[technology]", "`"{0}`"" -f "null")
     $serviceMarkup = $serviceMarkup.Replace("[description]", "Origin for outbound dependency calls" )
-    $serviceMarkup
+    return $serviceMarkup
 }
 
 function Get-PrivateEndpointsMarkup {
@@ -159,7 +180,7 @@ function Get-PrivateEndpointsMarkup {
     $serviceMarkup = $serviceMarkup.Replace("[name]", "`"{0}`"" -f $Data.Name)
     $serviceMarkup = $serviceMarkup.Replace("[technology]", "`"{0}`"" -f "null")
     $serviceMarkup = $serviceMarkup.Replace("[description]", "Private connection to PaaS service" )
-    $serviceMarkup
+    return $serviceMarkup
 }
 
 function Get-RedisVnetMarkup {
@@ -170,7 +191,7 @@ function Get-RedisVnetMarkup {
     $technologyText = "SKU: " + $Data.Properties.sku.name + ", Capacity: " + $Data.Properties.sku.capacity
     $serviceMarkup = $serviceMarkup.Replace("[technology]", "`"{0}`"" -f $technologyText)
     $serviceMarkup = $serviceMarkup.Replace("[description]", "`"{0}`"" -f $Data.Properties.staticIP)
-    $serviceMarkup
+    return $serviceMarkup
 }
 
 
@@ -224,7 +245,7 @@ function Get-AppServiceMarkup {
                 # if using VNET Integration, append link to subnet
                 if ($appService.Properties.virtualNetworkSubnetId) {
                     $subnetMarkupId = $appService.Properties.virtualNetworkSubnetId.Split("/")[10].Replace("-", "") + "vnetintegration"
-                    $appServiceLinkMarkup = "`t`t$subnetMarkupId <-- $appServiceMarkupId"
+                    $appServiceLinkMarkup = "`t`t$subnetMarkupId <- $appServiceMarkupId"
                     $appServiceMarkup += "`n" + $appServiceLinkMarkup
                 }
 
@@ -286,7 +307,7 @@ function Get-CosmosDbMarkup  {
         foreach ($subnet in $cosmosInstance.Properties.virtualNetworkRules) {
             $subnetMarkupId = $subnet.id.Split("/")[10].Replace("-","")
             if ($subnetMarkupId -in $SubnetMarkupIds) {
-                $networkRuleLinkMarkup += "`t" + $serviceMarkupId + " <-- " + $subnetMarkupId + "`n"
+                $networkRuleLinkMarkup += "`t" + $serviceMarkupId + " <- " + $subnetMarkupId + "`n"
             }
         }
 
@@ -294,5 +315,5 @@ function Get-CosmosDbMarkup  {
         $serviceItemsMarkup += $serviceMarkup
     }
 
-    $serviceItemsMarkup
+    return $serviceItemsMarkup
 }

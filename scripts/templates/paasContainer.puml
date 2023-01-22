@@ -1,0 +1,3 @@
+    rectangle "paas" <<paasContainer>> as [paasContainerId] {
+        [paasItems]
+    }
