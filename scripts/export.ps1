@@ -103,6 +103,28 @@ $dictServices = @{}
 foreach ($service in $services) {
     $items = Get-AzResource -ResourceType "${service}" -ExpandProperties
     $dictServices.add( $service, $items)
+
+    # get network rules for Event Hub and Service Bus
+    if ($service -eq "Microsoft.EventHub/namespaces" -or $service -eq "Microsoft.ServiceBus/namespaces") {
+
+        $networkRuleSets = New-Object -TypeName 'System.Collections.ArrayList'
+        $namespace = ""
+
+        foreach ($item in $items) {
+            if ($service -eq "Microsoft.EventHub/namespaces") {
+                $networkRuleSet = Get-AzEventHubNetworkRuleSet -ResourceGroupName $item.ResourceGroupName -Namespace $item.Name
+                $networkRuleSets.Add($networkRuleSet)
+                $namespace = "Microsoft.EventHub/Namespaces/NetworkRuleSets"
+            }
+            if ($service -eq "Microsoft.ServiceBus/namespaces") {
+                $networkRuleSet = Get-AzServiceBusNetworkRuleSet -ResourceGroupName $item.ResourceGroupName -Namespace $item.Name
+                $networkRuleSets.Add($networkRuleSet)
+                $namespace = "Microsoft.ServiceBus/Namespaces/NetworkRuleSets"
+            }
+        }
+
+        $dictServices.add($namespace, $networkRuleSets)
+    }
 }
 
 #
@@ -126,8 +148,10 @@ $dictServices.GetEnumerator() | ForEach-Object {
     switch ($_.Key)
     {
         "Microsoft.ServiceBus/namespaces" { $filename = "serviceBusNamespaces"; Break }
+        "Microsoft.ServiceBus/namespaces/NetworkRuleSets" { $filename = "serviceBusNetworkRuleSets"; Break }
         "Microsoft.EventHub/clusters" { $filename = "eventHubClusters"; Break }
         "Microsoft.EventHub/namespaces" { $filename = "eventHubNamespaces"; Break }
+        "Microsoft.EventHub/namespaces/NetworkRuleSets" { $filename = "eventHubNetworkRuleSets"; Break }
         "Microsoft.ApiManagement/service" { $filename = "apiManagement"; Break }
         "Microsoft.ContainerService/managedClusters" { $filename = "apiManagement"; Break }
         "Microsoft.DocumentDB/databaseAccounts" { $filename = "cosmosDbAccounts"; Break }
