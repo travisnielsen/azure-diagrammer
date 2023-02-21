@@ -267,7 +267,7 @@ function Get-AppServiceMarkup {
         $servicePlanItemsMarkup += $servicePlanMarkup
      }
 
-     return ,$servicePlanItemsMarkup
+     return $servicePlanItemsMarkup
 }
 
 function Get-EventHubMarkup {
@@ -277,9 +277,40 @@ function Get-EventHubMarkup {
 }
 
 function Get-ServiceBusMarkup  {
-    param ( [Parameter(Mandatory=$true,Position=0)] $Data )
-    $serviceMarkup = Get-Content './templates/serviceBus.puml' -Raw
+    param (
+        [Parameter(Mandatory=$true,Position=0)] $ServiceBusData,
+        [Parameter(Mandatory=$true,Position=1)] $NetworkConfigs,
+        [Parameter(Mandatory=$true,Position=2)] $SubnetMarkupIds
+    )
+    $serviceItemsMarkup = ""
 
+    foreach ($sbNamespace in $ServiceBusData) {
+
+        $serviceMarkup = Get-Content './templates/serviceBus.puml' -Raw
+        $serviceMarkupId = $sbNamespace.name.Replace("-", "")
+        $serviceMarkup = $serviceMarkup.Replace("[id]", $serviceMarkupId)
+        $serviceMarkup = $serviceMarkup.Replace("[name]", "`"{0}`"" -f $sbNamespace.Name)
+        $technologyText = "SKU: " + $sbNamespace.Sku.Tier + ", Capacity: " + $sbNamespace.Sku.Capacity + ", Zone Redundancy: " + $sbNamespace.Properties.zoneRedundant
+        $serviceMarkup = $serviceMarkup.Replace("[technology]", "`"{0}`"" -f $technologyText)
+        $serviceMarkup = $serviceMarkup.Replace("[description]", "`"{0}`"" -f "null")
+
+        # add subnet connections for the instance
+        $subscription = $sbNamespace.Id.Split("/")[2]
+        $networkConfig = $NetworkConfigs | Where-Object { $_.Id -match $sbNamespace.Id }
+        $subnetIds = $networkConfig.VirtualNetworkRules | Where-Object { $_.Subnet.Id -like "*${subscription}*" } | ForEach-Object { $_.Subnet.id } | Select-Object
+
+        $networkRuleLinkMarkup = ""
+        foreach ($subnetId in $subnetIds) {
+            $subnetMarkupId = $subnetId.Split("/")[10].Replace("-","")
+            if ($subnetMarkupId -in $SubnetMarkupIds) {
+                $networkRuleLinkMarkup += "`t" + $serviceMarkupId + " <- " + $subnetMarkupId + "`n"
+            }
+        }
+        $serviceMarkup += "`n${networkRuleLinkMarkup}`n"
+        $serviceItemsMarkup += $serviceMarkup
+    }
+
+    return $serviceItemsMarkup
 }
 
 function Get-CosmosDbMarkup  {

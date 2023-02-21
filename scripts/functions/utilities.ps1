@@ -21,7 +21,10 @@ function Get-PaasMarkup {
             if ($appServicePlans) { return Get-AppServiceMarkup $appServices $appServicePlans }
         }
         # "eventHubNamespaces" { $paasMarkup = Get-EventHubMarkup $DictData["eventHubNamespaces"] $DictData["eventHubClusters"] }
-        # "serviceBusNamespaces" { $paasMarkup = Get-ServiceBusMarkup $DictData["serviceBusNamespaces"] }
+        "serviceBusNamespaces" { 
+            $serviceBusData = $DictData["serviceBusNamespaces"] | Where-Object { $_.Location -eq $regionName -and $_.SubscriptionId -eq $SubscriptionId }
+            if ($serviceBusData) { return Get-ServiceBusMarkup $serviceBusData $DictData["serviceBusNetworkRuleSets"] $subnetMarkupIds }
+        }
         "cosmosDbAccounts" { 
             $cosmosData = $DictData["cosmosDbAccounts"] | Where-Object { $_.Location -eq $regionName -and $_.SubscriptionId -eq $SubscriptionId }
             if ($cosmosData) { return Get-CosmosDbMarkup $cosmosData $subnetMarkupIds }
@@ -57,3 +60,14 @@ function Get-SubnetMarkupIds {
 
     $subnetIds
 }
+
+<#
+function Get-AllowedSubnets {
+    param (
+        [Parameter(Mandatory=$true,Position=0)] $ServiceId,
+        [Parameter(Mandatory=$true,Position=1)] $NetworkConfig )
+
+    $matchingSubnetIds = $NetworkConfig.VirtualNetworkRules | Where-Object { $_.Location -eq $regionName } | ForEach-Object {$_.Name } 
+
+}
+#>
